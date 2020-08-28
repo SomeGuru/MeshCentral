@@ -55,7 +55,7 @@ CheckInstallAgent() {
     url=$1
     meshid=$2
     meshidlen=${#meshid}
-    if [ $meshidlen -eq 64 ]
+    if [ $meshidlen -gt 63 ]
     then
       machineid=0
       machinetype=$( uname -m )
@@ -75,7 +75,15 @@ CheckInstallAgent() {
 			machineid=30
 		  else
 			# Linux x86, 64 bit
-			machineid=6
+			bitlen=$( getconf LONG_BIT )
+			if [ $bitlen == '32' ] 
+			then
+				# 32 bit OS
+				machineid=5
+			else
+				# 64 bit OS
+				machineid=6
+			fi
 		  fi
         fi
         if [ $machinetype == 'x86' ] || [ $machinetype == 'i686' ] || [ $machinetype == 'i586' ]
@@ -110,7 +118,7 @@ CheckInstallAgent() {
       fi
 
     else
-      echo "MeshID is not correct, must be 64 characters long."
+      echo "MeshID is not correct, must be at least 64 characters long."
     fi
   else
     echo "URI and/or MeshID have not been specified, must be passed in as arguments."
@@ -156,12 +164,12 @@ DownloadAgent() {
         # systemd
         if [ -d "/lib/systemd/system/" ]
         then
-            echo -e "[Unit]\nDescription=MeshCentral Agent\n[Service]\nExecStart=/usr/local/mesh/meshagent\nStandardOutput=null\nRestart=always\nRestartSec=3\n[Install]\nWantedBy=multi-user.target\nAlias=meshagent.service\n" > /lib/systemd/system/meshagent.service
+            echo -e "[Unit]\nDescription=MeshCentral Agent\n[Service]\nWorkingDirectory=/usr/local/mesh\nExecStart=/usr/local/mesh/meshagent\nStandardOutput=null\nRestart=always\nRestartSec=3\n[Install]\nWantedBy=multi-user.target\nAlias=meshagent.service\n" > /lib/systemd/system/meshagent.service
         else
             # Some distros have the systemd folder at a different place
             if [ -d "/usr/lib/systemd/system/" ]
             then
-                echo -e "[Unit]\nDescription=MeshCentral Agent\n[Service]\nExecStart=/usr/local/mesh/meshagent\nStandardOutput=null\nRestart=always\nRestartSec=3\n[Install]\nWantedBy=multi-user.target\nAlias=meshagent.service\n" > /usr/lib/systemd/system/meshagent.service
+                echo -e "[Unit]\nDescription=MeshCentral Agent\n[Service]\nWorkingDirectory=/usr/local/mesh\nExecStart=/usr/local/mesh/meshagent\nStandardOutput=null\nRestart=always\nRestartSec=3\n[Install]\nWantedBy=multi-user.target\nAlias=meshagent.service\n" > /usr/lib/systemd/system/meshagent.service
             else
                 echo "Unable to find systemd folder."
             fi

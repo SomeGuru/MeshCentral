@@ -1,6 +1,6 @@
 ﻿<!DOCTYPE html>
 <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml">
-<head>
+<head lang="en">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
     <meta name="viewport" content="user-scalable=1.0,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0" />
@@ -8,8 +8,9 @@
     <meta name="format-detection" content="telephone=no" />
     <link rel="shortcut icon" type="image/x-icon" href="{{{domainurl}}}favicon.ico" />
     <link keeplink=1 type="text/css" href="styles/style.css" media="screen" rel="stylesheet" title="CSS" />
-    <script type="text/javascript" src="scripts/common-0.0.1.js"></script>
-    <script keeplink=1 type="text/javascript" src="scripts/u2f-api.js"></script>
+    <link rel="apple-touch-icon" href="/favicon-303x303.png" />
+    <script type="text/javascript" src="scripts/common-0.0.1{{min}}.js"></script>
+    <script keeplink=1 type="text/javascript" src="scripts/u2f-api{{min}}.js"></script>
     <title>{{{title}}} - Login</title>
 </head>
 <body id="body" onload="if (typeof(startup) !== 'undefined') startup();" class="arg_hide login">
@@ -19,219 +20,260 @@
             <div class="title">{{{title1}}}</div>
             <div class="title2">{{{title2}}}</div>
         </div>
-            <div id=topbar class="noselect style3" style="height:24px">
-                <div id=uiMenuButton title="User interface selection" onclick="showUserInterfaceSelectMenu()">
-                    &diams;
-                    <div id=uiMenu style="display:none">
-                        <div id=uiViewButton1 class=uiSelector onclick=userInterfaceSelectMenu(1) title="Left bar interface"><div class="uiSelector1"></div></div>
-                        <div id=uiViewButton2 class=uiSelector onclick=userInterfaceSelectMenu(2) title="Top bar interface"><div class="uiSelector2"></div></div>
-                        <div id=uiViewButton3 class=uiSelector onclick=userInterfaceSelectMenu(3) title="Fixed width interface"><div class="uiSelector3"></div></div>
-                        <div id=uiViewButton4 class=uiSelector onclick=toggleNightMode() title="Toggle night mode"><div class="uiSelector4"></div></div>
-                    </div>
+        <div id=topbar class="noselect style3" style="height:24px">
+            <div id=uiMenuButton title="User interface selection" onclick="showUserInterfaceSelectMenu()">
+                &diams;
+                <div id=uiMenu style="display:none">
+                    <div id=uiViewButton1 class=uiSelector onclick=userInterfaceSelectMenu(1) title="Left bar interface"><div class="uiSelector1"></div></div>
+                    <div id=uiViewButton2 class=uiSelector onclick=userInterfaceSelectMenu(2) title="Top bar interface"><div class="uiSelector2"></div></div>
+                    <div id=uiViewButton3 class=uiSelector onclick=userInterfaceSelectMenu(3) title="Fixed width interface"><div class="uiSelector3"></div></div>
+                    <div id=uiViewButton4 class=uiSelector onclick=toggleNightMode() title="Toggle night mode"><div class="uiSelector4"></div></div>
                 </div>
             </div>
-            <div id=column_l>
-                <h1>Welcome</h1>
-                <div id="welcomeText" style="display:none">Connect to your home or office devices from anywhere in the world using MeshCentral, the real time, open source remote monitoring and management web site. You will need to download and install a management agent on your computers. Once installed, computers will show up in the &quot;My Devices&quot; section of this web site and you will be able to monitor them and take control of them.</div>
-                <table id="centralTable" style="">
-                    <tr>
-                        <td id="welcomeimage">
-                            <picture>
-                                <img alt="" src=welcome.jpg style="border-radius:20px" />
-                            </picture>
-                        </td>
-                        <td id="logincell">
-                            <div id=loginpanel style="display:none">
-                                <form method=post>
-                                    <input type=hidden name=action value=login />
-                                    <div id=message1></div>
-                                    <div>
-                                        <b>Log In</b>
-                                    </div>
-                                    <table>
-                                        <tr>
-                                            <td id=loginusername align=right width=100>Username:</td>
-                                            <td><input id=username autocomplete="username" type=text maxlength=64 name=username onchange=validateLogin(1) onkeyup=validateLogin(1,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td align=right>Password:</td>
-                                            <td><input id=password autocomplete="current-password" type=password maxlength=256 name=password onchange=validateLogin(2) onkeyup=validateLogin(2,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td><div id=showPassHintLink style=display:none><a onclick="return showPassHint(event);" href="#" style="cursor:pointer">Show Hint</a></div></td>
-                                            <td align=right><input id=loginButton type=submit value="Log In" disabled="disabled" /></td>
-                                        </tr>
-                                    </table>
-                                    <div id="hrAccountDiv" style="display:none"><hr /></div>
-                                    <div id="resetAccountDiv" style="display:none;padding:2px">
-                                        <span id="resetAccountSpan">Forgot username/password?</span> <a onclick="return xgo(3,event);" href="#" style=cursor:pointer>Reset account</a>.
-                                    </div>
-                                    <div id="newAccountDiv" style="display:none;padding:2px">
-                                        Don&#39;t have an account? <a onclick="return xgo(2,event);" href="#" style=cursor:pointer>Create one</a>.
-                                    </div>
-                                    <input id=loginformargs name="urlargs" type="hidden" value="" />
-                                </form>
-                            </div>
-                            <div id=createpanel style="display:none;position:relative">
-                                <form method=post>
-                                    <input type=hidden name=action value=createaccount />
-                                    <div id=message2></div>
-                                    <div>
-                                        <b>Account Creation</b>
-                                    </div>
-                                    <div id="passwordPolicyCallout" style="display:none"></div>
-                                    <table>
-                                        <tr id="nuUserRow">
-                                            <td id="nuUser" align=right width=100>Username:</td>
-                                            <td><input id=ausername type=text autocomplete="username" name=username onchange=validateCreate(1) maxlength=64 onkeydown=haltReturn(event) onkeyup=validateCreate(1,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td id="nuEmail" align=right width=100>Email:</td>
-                                            <td><input id=aemail type=text autocomplete="email" inputmode="email" name=email onchange=validateCreate(2) maxlength=256 onkeydown=haltReturn(event) onkeyup=validateCreate(2,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td id="nuPass1" align=right>Password:</td>
-                                            <td><input id=apassword1 type=password name=password1 autocomplete="new-password" maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(3,event) onkeyup=validateCreate(3,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td id="nuPass2" align=right>Password:</td>
-                                            <td><input id=apassword2 type=password name=password2 autocomplete="new-password" maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(4,event) onkeyup=validateCreate(4,event) /></td>
-                                        </tr>
-                                        <tr id="createPanelHint" style="display:none">
-                                            <td id="nuHint" align=right>Password Hint:</td>
-                                            <td><input id=apasswordhint type=text name=apasswordhint autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(5,event) onkeyup=validateCreate(5,event) /></td>
-                                        </tr>
-                                        <tr id=newAccountPass title="Enter the account creation token">
-                                            <td id="nuToken" align=right>Creation Token:</td>
-                                            <td><input id=anewaccountpass type=password name=anewaccountpass autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(6,event) onkeyup=validateCreate(6,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan=2>
-                                                <div style=float:right><input id=createButton type=submit value="Create Account" disabled="disabled" /></div>
-                                                <div id=passWarning style="padding-top:6px"></div>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
-                                    <input id=createformargs name="urlargs" type="hidden" value="" />
-                                </form>
-                            </div>
-                            <div id=resetpanel style="display:none">
-                                <form method=post>
-                                    <input type=hidden name=action value=resetaccount />
-                                    <div id=message3></div>
-                                    <div>
-                                        <b>Account Reset</b>
-                                    </div>
-                                    <table>
-                                        <tr>
-                                            <td align=right width=100>Email:</td>
-                                            <td><input id=remail type=text inputmode="email" name=email maxlength=256 onchange=validateReset() onkeyup=validateReset(event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan=2>
-                                                <div style=float:right><input id=eresetButton type=submit value="Reset Account" disabled="disabled" /></div>
-                                                <div id=passWarning style="padding-top:6px"></div>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
-                                    <input id=resetformargs name="urlargs" type="hidden" value="" />
-                                </form>
-                            </div>
-                            <div id=tokenpanel style="display:none">
-                                <form method=post autocomplete=off>
-                                    <input type=hidden name=action value=tokenlogin />
-                                    <input type=hidden name=hwstate value="{{{hwstate}}}" />
-                                    <div id=message4></div>
-                                    <table>
-                                        <tr>
-                                            <td align=right width=100>Login token:</td>
-                                            <td>
-                                                <input id=tokenInput autocomplete="one-time-code" inputmode="numeric" type=text name=token maxlength=50 onchange=checkToken(event) onpaste=resetCheckToken(event) onkeyup=checkToken(event) onkeydown=checkToken(event) /><br />
-                                                <input id=hwtokenInput type=text name=hwtoken style="display:none" />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2" style="align-content:center">
-                                                <label><input id=tokenInputRemember name=remembertoken type=checkbox />Remember this device for 30 days.</label>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan=2>
-                                                <div style=float:right><input id=tokenOkButton type=submit value="Login" disabled="disabled" /></div>
-                                                <div style=float:right><input style="display:none;float:right" id=securityKeyButton type=button value="Use Security Key" onclick="useSecurityKey()" /></div>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
-                                    <input id=tokenformargs name="urlargs" type="hidden" value="" />
-                                </form>
-                            </div>
-                            <div id=resettokenpanel style="display:none">
-                                <form method=post>
-                                    <input type=hidden name=action value=resetaccount />
-                                    <div id=message5></div>
-                                    <table>
-                                        <tr>
-                                            <td align=right width=100>Login token:</td>
-                                            <td>
-                                                <input id=resetTokenInput type=text name=token maxlength=50 onchange=resetCheckToken(event) onkeyup=resetCheckToken(event) onkeydown=resetCheckToken(event) />
-                                                <input id=resetHwtokenInput type=text name=hwtoken style="display:none" />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan=2>
-                                                <div style=float:right><input id=resetTokenOkButton type=submit value="Login" disabled="disabled" /></div>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
-                                    <input id=resettokenformargs name="urlargs" type="hidden" value="" />
-                                </form>
-                            </div>
-                            <div id=resetpasswordpanel style="display:none;position:relative">
-                                <form method=post>
-                                    <input type=hidden name=action value=resetpassword />
-                                    <div id=message6></div>
-                                    <div id="rpasswordPolicyCallout" style="display:none"></div>
-                                    <table>
-                                        <tr>
-                                            <td id="rnuPass1" width=100 align=right>Password:</td>
-                                            <td><input id=rapassword1 type=password name=rpassword1 autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validatePassReset(3,event) onkeyup=validatePassReset(3,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td id="rnuPass2" align=right>Password:</td>
-                                            <td><input id=rapassword2 type=password name=rpassword2 autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validatePassReset(4,event) onkeyup=validatePassReset(4,event) /></td>
-                                        </tr>
-                                        <tr id="resetpasswordpanelHint" style="display:none">
-                                            <td id="rnuHint" align=right>Password Hint:</td>
-                                            <td><input id=rapasswordhint type=text name=rpasswordhint autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validatePassReset(5,event) onkeyup=validatePassReset(5,event) /></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan=2>
-                                                <div style=float:right><input id=resetPassButton type=submit value="Reset Password" disabled="disabled" /></div>
-                                                <div id=rpassWarning style="padding-top:6px"></div>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
-                                    <input id=resetpasswordformargs name="urlargs" type="hidden" value="" />
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                </table>
-                <br />
+        </div>
+        <div id=column_l>
+            <h1>Welcome</h1>
+            <div id="welcomeText" style="display:none">Connect to your home or office devices from anywhere in the world using MeshCentral, the real time, open source remote monitoring and management web site. You will need to download and install a management agent on your computers. Once installed, computers will show up in the &quot;My Devices&quot; section of this web site and you will be able to monitor them and take control of them.</div>
+            <table id="centralTable" style="">
+                <tr>
+                    <td id="welcomeimage">
+                        <picture>
+                            <img alt="" src=welcome.jpg style="border-radius:20px" />
+                        </picture>
+                    </td>
+                    <td id="logincell">
+                        <div id=loginpanel style="display:none">
+                            <form method=post>
+                                <input type=hidden name=action value=login />
+                                <div id=message1></div>
+                                <div>
+                                    <b>Log In</b>
+                                </div>
+                                <table>
+                                    <tr>
+                                        <td id=loginusername align=right width=100>Username:</td>
+                                        <td><input id=username autocomplete="username" type=text maxlength=64 name=username onchange=validateLogin(1) onkeyup=validateLogin(1,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td align=right>Password:</td>
+                                        <td><input id=password autocomplete="current-password" type=password maxlength=256 name=password onchange=validateLogin(2) onkeyup=validateLogin(2,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td><div id=showPassHintLink style=display:none><a onclick="return showPassHint(event);" href="#" style="cursor:pointer">Show Hint</a></div></td>
+                                        <td align=right><input id=loginButton type=submit value="Log In" disabled="disabled" /></td>
+                                    </tr>
+                                </table>
+                                <div id="hrAccountDiv" style="display:none"><hr /></div>
+                                <div id="resetAccountDiv" style="display:none;padding:2px">
+                                    <span id="resetAccountSpan">Forgot username/password?</span> <a onclick="return xgo(3,event);" href="#" style=cursor:pointer>Reset account</a>.
+                                </div>
+                                <div id="newAccountDiv" style="display:none;padding:2px">
+                                    Don&#39;t have an account? <a onclick="return xgo(2,event);" href="#" style=cursor:pointer>Create one</a>.
+                                </div>
+                                <input id=loginformargs name="urlargs" type="hidden" value="" />
+                                <div id="authStrategies" style="display:none">
+                                    <hr />
+                                    <div style="margin-bottom:8px">Log in using an existing account</div>
+                                    <a id="auth-twitter" href="auth-twitter" style="display:none"><img src="images/login/twitter32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Twitter" /></a>
+                                    <a id="auth-google" href="auth-google" style="display:none"><img src="images/login/google32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Google" /></a>
+                                    <a id="auth-github" href="auth-github" style="display:none"><img src="images/login/github32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using GitHub" /></a>
+                                    <a id="auth-reddit" href="auth-reddit" style="display:none"><img src="images/login/reddit32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Reddit" /></a>
+                                    <a id="auth-azure" href="auth-azure" style="display:none"><img src="images/login/azure32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Azure" /></a>
+                                    <a id="auth-jumpcloud" href="auth-jumpcloud" style="display:none"><img src="images/login/jumpcloud32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using JumpCloud" /></a>
+                                    <a id="auth-intel" href="auth-intel" style="display:none"><img src="images/login/intel32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Intel" /></a>
+                                    <a id="auth-saml" href="auth-saml" style="display:none"><img src="images/login/generic32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Single Sign-in" /></a>
+                                </div>
+                            </form>
+                        </div>
+                        <div id=createpanel style="display:none;position:relative">
+                            <form method=post>
+                                <input type=hidden name=action value=createaccount />
+                                <div id=message2></div>
+                                <div>
+                                    <b>Account Creation</b>
+                                </div>
+                                <div id="passwordPolicyCallout" style="display:none"></div>
+                                <table>
+                                    <tr id="nuUserRow">
+                                        <td id="nuUser" align=right width=100>Username:</td>
+                                        <td><input id=ausername type=text autocomplete="username" name=username onchange=validateCreate(1) maxlength=64 onkeydown=haltReturn(event) onkeyup=validateCreate(1,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td id="nuEmail" align=right width=100>Email:</td>
+                                        <td><input id=aemail type=text autocomplete="email" inputmode="email" name=email onchange=validateCreate(2) maxlength=256 onkeydown=haltReturn(event) onkeyup=validateCreate(2,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td id="nuPass1" align=right>Password:</td>
+                                        <td><input id=apassword1 type=password name=password1 autocomplete="new-password" maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(3,event) onkeyup=validateCreate(3,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td id="nuPass2" align=right>Password:</td>
+                                        <td><input id=apassword2 type=password name=password2 autocomplete="new-password" maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(4,event) onkeyup=validateCreate(4,event) /></td>
+                                    </tr>
+                                    <tr id="createPanelHint" style="display:none">
+                                        <td id="nuHint" align=right>Password Hint:</td>
+                                        <td><input id=apasswordhint type=text name=apasswordhint autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(5,event) onkeyup=validateCreate(5,event) /></td>
+                                    </tr>
+                                    <tr id=newAccountPass title="Enter the account creation token">
+                                        <td id="nuToken" align=right>Creation Token:</td>
+                                        <td><input id=anewaccountpass type=password name=anewaccountpass autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validateCreate(6,event) onkeyup=validateCreate(6,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan=2>
+                                            <div style=float:right><input id=createButton type=submit value="Create Account" disabled="disabled" /></div>
+                                            <div id=passWarning style="padding-top:6px"></div>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
+                                <input id=createformargs name="urlargs" type="hidden" value="" />
+                            </form>
+                        </div>
+                        <div id=resetpanel style="display:none">
+                            <form method=post>
+                                <input type=hidden name=action value=resetaccount />
+                                <div id=message3></div>
+                                <div>
+                                    <b>Account Reset</b>
+                                </div>
+                                <table>
+                                    <tr>
+                                        <td align=right width=100>Email:</td>
+                                        <td><input id=remail type=text inputmode="email" name=email maxlength=256 onchange=validateReset() onkeyup=validateReset(event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan=2>
+                                            <div style=float:right><input id=eresetButton type=submit value="Reset Account" disabled="disabled" /></div>
+                                            <div id=passWarning style="padding-top:6px"></div>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
+                                <input id=resetformargs name="urlargs" type="hidden" value="" />
+                            </form>
+                        </div>
+                        <div id=tokenpanel style="display:none">
+                            <form method=post autocomplete=off>
+                                <input type=hidden name=action value=tokenlogin />
+                                <input type=hidden name=hwstate value="{{{hwstate}}}" />
+                                <div id=message4></div>
+                                <table>
+                                    <tr>
+                                        <td align=right width=100>Login token:</td>
+                                        <td>
+                                            <input id=tokenInput autocomplete="one-time-code" inputmode="numeric" type=text name=token maxlength=50 onchange=checkToken(event) onpaste=resetCheckToken(event) onkeyup=checkToken(event) onkeydown=checkToken(event) /><br />
+                                            <input id=hwtokenInput type=text name=hwtoken style="display:none" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2" style="align-content:center">
+                                            <label id=tokenInputRememberLabel><input id=tokenInputRemember name=remembertoken type=checkbox /><span id=tokenInputRememberSpan></span></label>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan=2>
+                                            <div style=float:right><input id=tokenOkButton type=submit value="Login" disabled="disabled" /></div>
+                                            <div style=float:right>
+                                                <input style="display:none;float:right" id=securityKeyButton type=button value="Use Security Key" onclick="useSecurityKey()" />
+                                                <input style="display:none;float:right" id=emailKeyButton type=button value="Email" onclick="useEmailToken()" />
+                                                <input style="display:none;float:right" id=smsKeyButton type=button value="SMS" onclick="useSMSToken()" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
+                                <input id=tokenformargs name="urlargs" type="hidden" value="" />
+                            </form>
+                        </div>
+                        <div id=resettokenpanel style="display:none">
+                            <form method=post>
+                                <input type=hidden name=action value=resetaccount />
+                                <div id=message5></div>
+                                <table>
+                                    <tr>
+                                        <td align=right width=100>Login token:</td>
+                                        <td>
+                                            <input id=resetTokenInput type=text name=token maxlength=50 onchange=resetCheckToken(event) onkeyup=resetCheckToken(event) onkeydown=resetCheckToken(event) />
+                                            <input id=resetHwtokenInput type=text name=hwtoken style="display:none" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan=2>
+                                            <div style=float:right><input id=resetTokenOkButton type=submit value="Login" disabled="disabled" /></div>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
+                                <input id=resettokenformargs name="urlargs" type="hidden" value="" />
+                            </form>
+                        </div>
+                        <div id=resetpasswordpanel style="display:none;position:relative">
+                            <form method=post>
+                                <input type=hidden name=action value=resetpassword />
+                                <div id=message6></div>
+                                <div id="rpasswordPolicyCallout" style="display:none"></div>
+                                <table>
+                                    <tr>
+                                        <td id="rnuPass1" width=100 align=right>Password:</td>
+                                        <td><input id=rapassword1 type=password name=rpassword1 autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validatePassReset(3,event) onkeyup=validatePassReset(3,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td id="rnuPass2" align=right>Password:</td>
+                                        <td><input id=rapassword2 type=password name=rpassword2 autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validatePassReset(4,event) onkeyup=validatePassReset(4,event) /></td>
+                                    </tr>
+                                    <tr id="resetpasswordpanelHint" style="display:none">
+                                        <td id="rnuHint" align=right>Password Hint:</td>
+                                        <td><input id=rapasswordhint type=text name=rpasswordhint autocomplete=off maxlength=256 onkeydown=haltReturn(event) onchange=validatePassReset(5,event) onkeyup=validatePassReset(5,event) /></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan=2>
+                                            <div style=float:right><input id=resetPassButton type=submit value="Reset Password" disabled="disabled" /></div>
+                                            <div id=rpassWarning style="padding-top:6px"></div>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
+                                <input id=resetpasswordformargs name="urlargs" type="hidden" value="" />
+                            </form>
+                        </div>
+                        <div id=checkemailpanel style="display:none;position:relative">
+                            <form method=post>
+                                <input type=hidden name=action value=checkemail />
+                                <div id=message7></div>
+                                <table id="checkCheckOperations" style="width:100%;display:none">
+                                    <tr>
+                                        <td>
+                                            <div id="unconfirmedEmail"></div><br />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <div>
+                                                <input id=changeEmailButton type=button value="Change Email Address" onclick="changeEmailAddress()" />
+                                                <input id=checkEmailButton2 type=button value="Resend Confirmation Email" onclick="resentEmailConfirmation()" />
+                                                <input id=checkEmailButton type=submit style="display:none" />
+                                                <input id=checkEmailVal name=email type="hidden" value="" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
+                                <input id=checkemailformargs name="urlargs" type="hidden" value="" />
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+            <br />
+        </div>
+        <div id="footer">
+            <div class="footer1">{{{footer}}}</div>
+            <div class="footer2">
+                {{{rootCertLink}}}
+                &nbsp;<a id="termsLinkFooter" href=terms>Terms &amp; Privacy</a>
             </div>
-            <div id="footer">
-                <div class="footer1">{{{footer}}}</div>
-                <div class="footer2">
-                    {{{rootCertLink}}}
-                    &nbsp;<a href=terms>Terms &amp; Privacy</a>
-                </div>
-            </div>
-        
+        </div>
+
     </div>
     <div id=dialog style="display:none">
         <div id=dialogHeader>
@@ -270,38 +312,58 @@
         var webPageFullScreen = true;
         var nightMode = (getstore('_nightMode', '0') == '1');
         var publicKeyCredentialRequestOptions = null;
-
-        // Display the right server message
-        var messageid = parseInt('{{{messageid}}}');
-        var okmessages = ['', "Hold on, reset mail sent."];
-        var failmessages = ["Unable to create account.", "Account limit reached.", "Existing account with this email address.", "Invalid account creation token.", "Username already exists.", "Password rejected, use a different one.", "Invalid email.", "Account not found.", "Invalid token, try again.", "Unable to sent email.", "Account locked.", "Access denied.", "Login failed, check username and password.", "Password change requested.", "IP address blocked, try again later."];
-        if (messageid > 0) {
-            var msg = '';
-            if ((messageid < 100) && (messageid < okmessages.length)) { msg = okmessages[messageid]; }
-            else if ((messageid >= 100) && ((messageid - 100) < failmessages.length)) { msg = failmessages[messageid - 100]; }
-            if (msg != '') {
-                if (messageid >= 100) { msg = ('<span class="msg error"><b style=color:#8C001A>' + msg + '<b></span><br /><br />'); } else { msg = ('<span class="msg success"><b>' + msg + '</b></span><br /><br />'); }
-                for (var i = 1; i < 7; i++) { QH('message' + i, msg); }
-            }
-        }
-
-        // If URL arguments are provided, add them to form posts
-        if (window.location.href.indexOf('?') > 0) {
-            var urlargs = window.location.href.substring(window.location.href.indexOf('?'));
-            Q('loginformargs').value = urlargs;
-            Q('createformargs').value = urlargs;
-            Q('resetformargs').value = urlargs;
-            Q('tokenformargs').value = urlargs;
-            Q('resettokenformargs').value = urlargs;
-            Q('resetpasswordformargs').value = urlargs;
-        }
-
-        //var webPageFullScreen = getstore('webPageFullScreen', true);
-        //if (webPageFullScreen == 'false') { webPageFullScreen = false; }
-        //if (webPageFullScreen == 'true') { webPageFullScreen = true; }
-        //toggleFullScreen();
+        var otpemail = (decodeURIComponent('{{{otpemail}}}') === 'true');
+        var otpsms = (decodeURIComponent('{{{otpsms}}}') === 'true');
+        var twoFactorCookieDays = parseInt('{{{twoFactorCookieDays}}}');
+        var authStrategies = '{{{authStrategies}}}'.split(',');
 
         function startup() {
+            // Display the right server message
+            var i;
+            var messageid = parseInt('{{{messageid}}}');
+            var okmessages = ['', "If valid, reset mail sent.", "Email sent.", "Email verification required, check your mailbox and click the confirmation link.", "SMS sent."];
+            var failmessages = ["Unable to create account.", "Account limit reached.", "Existing account with this email address.", "Invalid account creation token.", "Username already exists.", "Password rejected, use a different one.", "Invalid email.", "Account not found.", "Invalid token, try again.", "Unable to sent email.", "Account locked.", "Access denied.", "Login failed, check username and password.", "Password change requested.", "IP address blocked, try again later."];
+            if (messageid > 0) {
+                var msg = '';
+                if ((messageid < 100) && (messageid < okmessages.length)) { msg = okmessages[messageid]; }
+                else if ((messageid >= 100) && ((messageid - 100) < failmessages.length)) { msg = failmessages[messageid - 100]; }
+                if (msg != '') {
+                    if (messageid >= 100) { msg = ('<span class="msg error"><b style=color:#8C001A>' + msg + '<b></span><br /><br />'); } else { msg = ('<span class="msg success"><b>' + msg + '</b></span><br /><br />'); }
+                    for (i = 1; i < 8; i++) { QH('message' + i, msg); }
+                }
+            }
+
+            // Fix links if a loginKey if used
+            var urlargs = parseUriArgs();
+            if (urlargs.key) {
+                Q('termsLinkFooter').href += '?key=' + urlargs.key;
+            }
+
+            // Setup two factor cookie time
+            if (twoFactorCookieDays > 0) {
+                QV('tokenInputRememberLabel', true);
+                QH('tokenInputRememberSpan', format("Remember this device for {0} days.", twoFactorCookieDays));
+            } else {
+                QV('tokenInputRememberLabel', false);
+            }
+
+            // If URL arguments are provided, add them to form posts
+            if (window.location.href.indexOf('?') > 0) {
+                var xurlargs = window.location.href.substring(window.location.href.indexOf('?'));
+                Q('loginformargs').value = xurlargs;
+                Q('createformargs').value = xurlargs;
+                Q('resetformargs').value = xurlargs;
+                Q('tokenformargs').value = xurlargs;
+                Q('resettokenformargs').value = xurlargs;
+                Q('resetpasswordformargs').value = xurlargs;
+                Q('checkemailformargs').value = xurlargs;
+            }
+
+            //var webPageFullScreen = getstore('webPageFullScreen', true);
+            //if (webPageFullScreen == 'false') { webPageFullScreen = false; }
+            //if (webPageFullScreen == 'true') { webPageFullScreen = true; }
+            //toggleFullScreen();
+
             if ((features & 32) == 0) {
                 // Guard against other site's top frames (web bugs).
                 var loc = null;
@@ -319,6 +381,19 @@
 
             QV('createPanelHint', passRequirements.hint === true);
             QV('resetpasswordpanelHint', passRequirements.hint === true);
+
+            // Setup authentication strategies
+            if (authStrategies != '') {
+                QV('authStrategies', true);
+                if (authStrategies.indexOf('twitter') >= 0) { QV('auth-twitter', true); }
+                if (authStrategies.indexOf('google') >= 0) { QV('auth-google', true); }
+                if (authStrategies.indexOf('github') >= 0) { QV('auth-github', true); }
+                if (authStrategies.indexOf('reddit') >= 0) { QV('auth-reddit', true); }
+                if (authStrategies.indexOf('azure') >= 0) { QV('auth-azure', true); }
+                if (authStrategies.indexOf('jumpcloud') >= 0) { QV('auth-jumpcloud', true); }
+                if (authStrategies.indexOf('intel') >= 0) { QV('auth-intel', true); }
+                if (authStrategies.indexOf('saml') >= 0) { QV('auth-saml', true); }
+            }
 
             // Display the welcome text
             if (welcomeText) {
@@ -343,6 +418,8 @@
             if (loginMode == '4') {
                 try { if (hardwareKeyChallenge.length > 0) { hardwareKeyChallenge = JSON.parse(hardwareKeyChallenge); } else { hardwareKeyChallenge = null; } } catch (ex) { hardwareKeyChallenge = null }
                 QV('securityKeyButton', (hardwareKeyChallenge != null) && (hardwareKeyChallenge.type == 'webAuthn'));
+                QV('emailKeyButton', otpemail && (messageid != 2) && (messageid != 4));
+                QV('smsKeyButton', otpsms && (messageid != 2) && (messageid != 4));
             }
 
             if (loginMode == '5') {
@@ -411,6 +488,28 @@
             }
         }
 
+        function useEmailToken() {
+            if (otpemail != true) return;
+            setDialogMode(1, "Secure Login", 3, useEmailKeyEx, "Send token to registed email address?");
+        }
+
+        function useEmailKeyEx() {
+            Q('hwtokenInput').value = '**email**';
+            QE('tokenOkButton', true);
+            Q('tokenOkButton').click();
+        }
+
+        function useSMSToken() {
+            if (otpsms != true) return;
+            setDialogMode(1, "Secure Login", 3, useSMSTokenEx, "Send token to registed phone number?");
+        }
+
+        function useSMSTokenEx() {
+            Q('hwtokenInput').value = '**sms**';
+            QE('tokenOkButton', true);
+            Q('tokenOkButton').click();
+        }
+
         function showPassHint(e) {
             messagebox("Password Hint", passhint);
             haltEvent(e);
@@ -424,6 +523,7 @@
             QV('message4', false);
             QV('message5', false);
             QV('message6', false);
+            QV('message7', false);
             go(x);
             haltEvent(e);
             return false;
@@ -439,12 +539,18 @@
             QV('tokenpanel', x == 4);
             QV('resettokenpanel', x == 5);
             QV('resetpasswordpanel', x == 6);
+            QV('checkemailpanel', x == 7);
             if (x == 1) { Q('username').focus(); }
             if (x == 2) { if (features & 0x200000) { Q('aemail').focus(); } else { Q('ausername').focus(); } } // Email is username
             if (x == 3) { Q('remail').focus(); }
             if (x == 4) { Q('tokenInput').focus(); }
             if (x == 5) { Q('resetTokenInput').focus(); }
             if (x == 6) { Q('rapassword1').focus(); }
+            if (x == 7) {
+                QH('unconfirmedEmail', passhint);
+                QV('checkCheckOperations', Q('unconfirmedEmail').innerHTML != '');
+                QH('checkEmailVal', passhint);
+            }
         }
 
         function validateLogin(box, e) {
@@ -466,11 +572,11 @@
             var ok = (userok && emailok && pass1ok && pass2ok && newAccOk);
 
             // Color the fields
-            QS('nuUser').color = userok?'black':'#7b241c';
-            QS('nuEmail').color = emailok?'black':'#7b241c';
-            QS('nuPass1').color = pass1ok?'black':'#7b241c';
-            QS('nuPass2').color = pass2ok?'black':'#7b241c';
-            QS('nuToken').color = newAccOk?'black':'#7b241c';
+            QS('nuUser').color = userok ? 'black' : '#7b241c';
+            QS('nuEmail').color = emailok ? 'black' : '#7b241c';
+            QS('nuPass1').color = pass1ok ? 'black' : '#7b241c';
+            QS('nuPass2').color = pass2ok ? 'black' : '#7b241c';
+            QS('nuToken').color = newAccOk ? 'black' : '#7b241c';
 
             if (Q('apassword1').value == '') {
                 QH('passWarning', '');
@@ -588,7 +694,7 @@
         function checkPasswordStrength(password) {
             var r = 0, letters = {}, varCount = 0, variations = { digits: /\d/.test(password), lower: /[a-z]/.test(password), upper: /[A-Z]/.test(password), nonWords: /\W/.test(password) }
             if (!password) return 0;
-            for (var i = 0; i< password.length; i++) { letters[password[i]] = (letters[password[i]] || 0) + 1; r += 5.0 / letters[password[i]]; }
+            for (var i = 0; i < password.length; i++) { letters[password[i]] = (letters[password[i]] || 0) + 1; r += 5.0 / letters[password[i]]; }
             for (var c in variations) { varCount += (variations[c] == true) ? 1 : 0; }
             return parseInt(r + (varCount - 1) * 10);
         }
@@ -617,7 +723,7 @@
             }
             return counts;
         }
-        
+
         function checkToken() {
             var t1 = Q('tokenInput').value;
             var t2 = t1.split(' ').join('');
@@ -630,6 +736,28 @@
             var t2 = t1.split(' ').join('');
             if (t1 != t2) { Q('resetTokenInput').value = t2; }
             QE('resetTokenOkButton', (Q('resetTokenInput').value.length == 6) || (Q('resetTokenInput').value.length == 8) || (Q('resetTokenInput').value.length == 44));
+        }
+
+        function changeEmailAddress() {
+            var email = Q('unconfirmedEmail').innerHTML;
+            var x = addHtmlValue("Email", '<input id=dp1email style=width:230px maxlength=256 value="' + email + '" autocomplete=off onchange=validateEmailAddress() onkeyup=validateEmailAddress() />');
+            setDialogMode(1, "Email Confirmation", 3, changeEmailAddressEx, x);
+            validateEmailAddress();
+        }
+
+        function validateEmailAddress() {
+            QE('idx_dlgOkButton', (validateEmail(Q('dp1email').value) == true));
+        }
+
+        function changeEmailAddressEx() {
+            Q('checkEmailVal').value = Q('dp1email').value;
+            QH('unconfirmedEmail', Q('dp1email').value);
+            Q('checkEmailButton').click();
+        }
+
+        function resentEmailConfirmation() {
+            Q('checkEmailVal').value = Q('unconfirmedEmail').innerHTML;
+            Q('checkEmailButton').click();
         }
 
         //
@@ -726,7 +854,8 @@
         function putstore(name, val) { try { if (typeof (localStorage) === 'undefined') return; localStorage.setItem(name, val); } catch (e) { } }
         function getstore(name, val) { try { if (typeof (localStorage) === 'undefined') return val; var v = localStorage.getItem(name); if ((v == null) || (v == null)) return val; return v; } catch (e) { return val; } }
         function format(format) { var args = Array.prototype.slice.call(arguments, 1); return format.replace(/{(\d+)}/g, function (match, number) { return typeof args[number] != 'undefined' ? args[number] : match; }); };
-        function addTextLink(subtext, text, link) { var i = text.toLowerCase().indexOf(subtext.toLowerCase()); if (i == -1) { return text; } return text.substring(0, i) + '<a href=\"' + link + '\">' + subtext + '</a>' + text.substring(i + subtext.length); }
+        function addTextLink(subtext, text, link) { var i = text.toLowerCase().indexOf(subtext.toLowerCase()); if (i == -1) { return text; } return text.substring(0, i) + '<a href="' + link + '">' + subtext + '</a>' + text.substring(i + subtext.length); }
+        function addHtmlValue(t, v) { return '<table><td style=width:120px;text-align:left>' + t + '<td><b>' + v + '</b></table>'; }
 
     </script>
 </body>

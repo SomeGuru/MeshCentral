@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml">
-<head>
+<head lang="en">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
     <meta name="viewport" content="user-scalable=1.0,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0" />
@@ -8,12 +8,13 @@
     <meta name="format-detection" content="telephone=no" />
     <link type="text/css" href="styles/style.css" media="screen" rel="stylesheet" title="CSS" />
     <link type="text/css" href="styles/xterm.css" media="screen" rel="stylesheet" title="CSS" />
-    <script type="text/javascript" src="scripts/common-0.0.1.js"></script>
-    <script type="text/javascript" src="scripts/meshcentral.js"></script>
-    <script type="text/javascript" src="scripts/agent-redir-ws-0.1.1.js"></script>
-    <script type="text/javascript" src="scripts/agent-redir-rtc-0.1.0.js"></script>
-    <script type="text/javascript" src="scripts/xterm.js"></script>
-    <script type="text/javascript" src="scripts/xterm-addon-fit.js"></script>
+    <link rel="apple-touch-icon" href="/favicon-303x303.png" />
+    <script type="text/javascript" src="scripts/common-0.0.1{{min}}.js"></script>
+    <script type="text/javascript" src="scripts/meshcentral{{min}}.js"></script>
+    <script type="text/javascript" src="scripts/agent-redir-ws-0.1.1{{min}}.js"></script>
+    <script type="text/javascript" src="scripts/agent-redir-rtc-0.1.0{{min}}.js"></script>
+    <script type="text/javascript" src="scripts/xterm-min.js"></script>
+    <script type="text/javascript" src="scripts/xterm-addon-fit-min.js"></script>
     <title>{{{name}}}</title>
 </head>
 <body style="overflow:hidden;background-color:black" oncontextmenu="handleContextMenu(event)">
@@ -92,6 +93,7 @@
         function start() {
             // Parse any URL arguments
             args = parseUriArgs();
+            if (args.key && (isAlphaNumeric(args.key) == false)) { delete args.key; }
 
             // Connect to the mesh server
             meshserver = MeshServerCreateControl(domainUrl, authCookie);
@@ -303,7 +305,27 @@
         function haltEvent(e) { if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); return false; }
         function pad2(num) { var s = '00' + num; return s.substr(s.length - 2); }
         function format(format) { var args = Array.prototype.slice.call(arguments, 1); return format.replace(/{(\d+)}/g, function (match, number) { return typeof args[number] != 'undefined' ? args[number] : match; }); };
-        function parseUriArgs() { var name, r = {}, parsedUri = window.document.location.href.split(/[\?&|\=]/); parsedUri.splice(0, 1); for (x in parsedUri) { switch (x % 2) { case 0: { name = decodeURIComponent(parsedUri[x]); break; } case 1: { r[name] = decodeURIComponent(parsedUri[x]); var x = parseInt(r[name]); if (x == r[name]) { r[name] = x; } break; } default: { break; } } } return r; }
+        function isAlphaNumeric(str) { return (str.match(/^[A-Za-z0-9]+$/) != null); };
+        function isSafeString(str) { return ((typeof str == 'string') && (str.indexOf('<') == -1) && (str.indexOf('>') == -1) && (str.indexOf('&') == -1) && (str.indexOf('"') == -1) && (str.indexOf('\'') == -1) && (str.indexOf('+') == -1) && (str.indexOf('(') == -1) && (str.indexOf(')') == -1) && (str.indexOf('#') == -1) && (str.indexOf('%') == -1) && (str.indexOf(':') == -1)) };
+
+        // Parse URL arguments, only keep safe values
+        function parseUriArgs() {
+            var href = window.document.location.href;
+            if (href.endsWith('#')) { href = href.substring(0, href.length - 1); }
+            var name, r = {}, parsedUri = href.split(/[\?&|\=]/);
+            parsedUri.splice(0, 1);
+            for (x in parsedUri) {
+                switch (x % 2) {
+                    case 0: { name = decodeURIComponent(parsedUri[x]); break; }
+                    case 1: {
+                        r[name] = decodeURIComponent(parsedUri[x]);
+                        if (!isSafeString(r[name])) { delete r[name]; } else { var x = parseInt(r[name]); if (x == r[name]) { r[name] = x; } }
+                        break;
+                    } default: { break; }
+                }
+            }
+            return r;
+        }
 
         start();
     </script>

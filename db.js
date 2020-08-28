@@ -28,15 +28,16 @@
 module.exports.CreateDB = function (parent, func) {
     var obj = {};
     var Datastore = null;
-    var expireEventsSeconds = (60 * 60 * 24 * 20);              // By default, expire events after 20 days. (Seconds * Minutes * Hours * Days)
-    var expirePowerEventsSeconds = (60 * 60 * 24 * 10);         // By default, expire power events after 10 days. (Seconds * Minutes * Hours * Days)
-    var expireServerStatsSeconds = (60 * 60 * 24 * 30);         // By default, expire power events after 30 days. (Seconds * Minutes * Hours * Days)
+    var expireEventsSeconds = (60 * 60 * 24 * 20);              // By default, expire events after 20 days (1728000). (Seconds * Minutes * Hours * Days)
+    var expirePowerEventsSeconds = (60 * 60 * 24 * 10);         // By default, expire power events after 10 days (864000). (Seconds * Minutes * Hours * Days)
+    var expireServerStatsSeconds = (60 * 60 * 24 * 30);         // By default, expire power events after 30 days (2592000). (Seconds * Minutes * Hours * Days)
     const common = require('./common.js');
     obj.identifier = null;
     obj.dbKey = null;
     obj.dbRecordsEncryptKey = null;
     obj.dbRecordsDecryptKey = null;
     obj.changeStream = false;
+    obj.pluginsActive = ((parent.config) && (parent.config.settings) && (parent.config.settings.plugins != null) && (parent.config.settings.plugins != false) && ((typeof parent.config.settings.plugins != 'object') || (parent.config.settings.plugins.enabled != false)));
 
     obj.SetupDatabase = function (func) {
         // Check if the database unique identifier is present
@@ -64,6 +65,15 @@ module.exports.CreateDB = function (parent, func) {
             func(ver);
         });
     };
+
+    // Perform database maintenance
+    obj.maintenance = function () {
+        if (obj.databaseType == 1) { // NeDB will not remove expired records unless we try to access them. This will force the removal.
+            obj.eventsfile.remove({ time: { '$lt': new Date(Date.now() - (expireEventsSeconds * 1000)) } }, { multi: true }); // Force delete older events
+            obj.powerfile.remove({ time: { '$lt': new Date(Date.now() - (expirePowerEventsSeconds * 1000)) } }, { multi: true }); // Force delete older events
+            obj.serverstatsfile.remove({ time: { '$lt': new Date(Date.now() - (expireServerStatsSeconds * 1000)) } }, { multi: true }); // Force delete older events
+        }
+    }
 
     obj.cleanup = function (func) {
         // TODO: Remove all mesh links to invalid users
@@ -234,7 +244,15 @@ module.exports.CreateDB = function (parent, func) {
             if (err == null) { for (var i in docs) { count++; obj.Set(docs[i]); } }
             obj.GetAllType('node', function (err, docs) {
                 if (err == null) { for (var i in docs) { count++; obj.Set(docs[i]); } }
-                func(count);
+                obj.GetAllType('mesh', function (err, docs) {
+                    if (err == null) { for (var i in docs) { count++; obj.Set(docs[i]); } }
+                    if (obj.databaseType == 1) { // If we are using NeDB, compact the database.
+                        obj.file.persistence.compactDatafile();
+                        obj.file.on('compaction.done', function () { func(count); }); // It's important to wait for compaction to finish before exit, otherwise NeDB may corrupt.
+                    } else {
+                        func(count); // For all other databases, normal exit.
+                    }
+                });
             });
         });
     }
@@ -247,6 +265,8 @@ module.exports.CreateDB = function (parent, func) {
                 data[i] = performPartialRecordDecrypt(data[i]);
             } else if ((data[i].type == 'node') && (data[i].intelamt != null)) {
                 data[i].intelamt = performPartialRecordDecrypt(data[i].intelamt);
+            } else if ((data[i].type == 'mesh') && (data[i].amt != null)) {
+                data[i].amt = performPartialRecordDecrypt(data[i].amt);
             }
         }
         return data;
@@ -255,8 +275,9 @@ module.exports.CreateDB = function (parent, func) {
     // Encrypt an database object
     function performTypedRecordEncrypt(data) {
         if (obj.dbRecordsEncryptKey == null) return data;
-        if (data.type == 'user') { return performPartialRecordEncrypt(Clone(data), ['otpkeys', 'otphkeys', 'otpsecret', 'salt', 'hash']); }
+        if (data.type == 'user') { return performPartialRecordEncrypt(Clone(data), ['otpkeys', 'otphkeys', 'otpsecret', 'salt', 'hash', 'oldpasswords']); }
         else if ((data.type == 'node') && (data.intelamt != null)) { var xdata = Clone(data); xdata.intelamt = performPartialRecordEncrypt(xdata.intelamt, ['user', 'pass']); return xdata; }
+        else if ((data.type == 'mesh') && (data.amt != null)) { var xdata = Clone(data); xdata.amt = performPartialRecordEncrypt(xdata.amt, ['password']); return xdata; }
         return data;
     }
 
@@ -296,7 +317,7 @@ module.exports.CreateDB = function (parent, func) {
         const iv = ciphertextBytes.slice(0, 12);
         const data = ciphertextBytes.slice(28);
         const aes = parent.crypto.createDecipheriv('aes-256-gcm', obj.dbRecordsDecryptKey, iv);
-        aes.setAuthTag(ciphertextBytes.slice(12, 16));
+        aes.setAuthTag(ciphertextBytes.slice(12, 28));
         var plaintextBytes, r;
         try {
             plaintextBytes = Buffer.from(aes.update(data));
@@ -319,13 +340,13 @@ module.exports.CreateDB = function (parent, func) {
     // If a DB record encryption key is provided, perform database record encryption
     if ((typeof parent.args.dbrecordsencryptkey == 'string') && (parent.args.dbrecordsencryptkey.length != 0)) {
         // Hash the database password into a AES256 key and setup encryption and decryption.
-        obj.dbRecordsEncryptKey = obj.dbRecordsDecryptKey = parent.crypto.createHash('sha384').update(parent.args.dbrecordsencryptkey).digest("raw").slice(0, 32);
+        obj.dbRecordsEncryptKey = obj.dbRecordsDecryptKey = parent.crypto.createHash('sha384').update(parent.args.dbrecordsencryptkey).digest('raw').slice(0, 32);
     }
 
     // If a DB record decryption key is provided, perform database record decryption
     if ((typeof parent.args.dbrecordsdecryptkey == 'string') && (parent.args.dbrecordsdecryptkey.length != 0)) {
         // Hash the database password into a AES256 key and setup encryption and decryption.
-        obj.dbRecordsDecryptKey = parent.crypto.createHash('sha384').update(parent.args.dbrecordsdecryptkey).digest("raw").slice(0, 32);
+        obj.dbRecordsDecryptKey = parent.crypto.createHash('sha384').update(parent.args.dbrecordsdecryptkey).digest('raw').slice(0, 32);
     }
 
     if (parent.args.mariadb || parent.args.mysql) {
@@ -390,6 +411,18 @@ module.exports.CreateDB = function (parent, func) {
             if (parent.args.mongodbname) { dbname = parent.args.mongodbname; }
             const dbcollectionname = (parent.args.mongodbcol) ? (parent.args.mongodbcol) : 'meshcentral';
             const db = client.db(dbname);
+
+            // Check the database version
+            db.admin().serverInfo(function (err, info) {
+                if ((err != null) || (info == null) || (info.versionArray == null) || (Array.isArray(info.versionArray) == false) || (info.versionArray.length < 2) || (typeof info.versionArray[0] != 'number') || (typeof info.versionArray[1] != 'number')) {
+                    console.log('WARNING: Unable to check MongoDB version.');
+                } else {
+                    if ((info.versionArray[0] < 3) || ((info.versionArray[0] == 3) && (info.versionArray[1] < 6))) {
+                        // We are running with mongoDB older than 3.6, this is not good.
+                        parent.addServerWarning("Current version of MongoDB (" + info.version + ") is too old, please upgrade to MongoDB 3.6 or better.");
+                    }
+                }
+            });
 
             // Setup MongoDB main collection and indexes
             obj.file = db.collection(dbcollectionname);
@@ -532,7 +565,7 @@ module.exports.CreateDB = function (parent, func) {
             });
 
             // Setup plugin info collection
-            if (parent.config.settings != null) { obj.pluginsfile = db.collection('plugins'); }
+            if (obj.pluginsActive) { obj.pluginsfile = db.collection('plugins'); }
 
             setupFunctions(func); // Completed setup of MongoDB
         });
@@ -636,7 +669,7 @@ module.exports.CreateDB = function (parent, func) {
         });
 
         // Setup plugin info collection
-        if (parent.config.settings != null) { obj.pluginsfile = db.collection('plugins'); }
+        if (obj.pluginsActive) { obj.pluginsfile = db.collection('plugins'); }
 
         setupFunctions(func); // Completed setup of MongoJS
     } else {
@@ -648,7 +681,7 @@ module.exports.CreateDB = function (parent, func) {
         // If a DB encryption key is provided, perform database encryption
         if ((typeof parent.args.dbencryptkey == 'string') && (parent.args.dbencryptkey.length != 0)) {
             // Hash the database password into a AES256 key and setup encryption and decryption.
-            obj.dbKey = parent.crypto.createHash('sha384').update(parent.args.dbencryptkey).digest("raw").slice(0, 32);
+            obj.dbKey = parent.crypto.createHash('sha384').update(parent.args.dbencryptkey).digest('raw').slice(0, 32);
             datastoreOptions.afterSerialization = function (plaintext) {
                 const iv = parent.crypto.randomBytes(16);
                 const aes = parent.crypto.createCipheriv('aes-256-cbc', obj.dbKey, iv);
@@ -669,7 +702,7 @@ module.exports.CreateDB = function (parent, func) {
 
         // Start NeDB main collection and setup indexes
         obj.file = new Datastore(datastoreOptions);
-        obj.file.persistence.setAutocompactionInterval(36000);
+        obj.file.persistence.setAutocompactionInterval(86400000); // Compact once a day
         obj.file.ensureIndex({ fieldName: 'type' });
         obj.file.ensureIndex({ fieldName: 'domain' });
         obj.file.ensureIndex({ fieldName: 'meshid', sparse: true });
@@ -677,31 +710,34 @@ module.exports.CreateDB = function (parent, func) {
         obj.file.ensureIndex({ fieldName: 'email', sparse: true });
 
         // Setup the events collection and setup indexes
-        obj.eventsfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-events.db'), autoload: true });
-        obj.eventsfile.persistence.setAutocompactionInterval(36000);
+        obj.eventsfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-events.db'), autoload: true, corruptAlertThreshold: 1 });
+        obj.eventsfile.persistence.setAutocompactionInterval(86400000); // Compact once a day
         obj.eventsfile.ensureIndex({ fieldName: 'ids' }); // TODO: Not sure if this is a good index, this is a array field.
         obj.eventsfile.ensureIndex({ fieldName: 'nodeid', sparse: true });
-        obj.eventsfile.ensureIndex({ fieldName: 'time', expireAfterSeconds: 60 * 60 * 24 * 20 }); // Limit the power event log to 20 days (Seconds * Minutes * Hours * Days)
+        obj.eventsfile.ensureIndex({ fieldName: 'time', expireAfterSeconds: expireEventsSeconds });
+        obj.eventsfile.remove({ time: { '$lt': new Date(Date.now() - (expireEventsSeconds * 1000)) } }, { multi: true }); // Force delete older events
 
         // Setup the power collection and setup indexes
-        obj.powerfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-power.db'), autoload: true });
-        obj.powerfile.persistence.setAutocompactionInterval(36000);
+        obj.powerfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-power.db'), autoload: true, corruptAlertThreshold: 1 });
+        obj.powerfile.persistence.setAutocompactionInterval(86400000); // Compact once a day
         obj.powerfile.ensureIndex({ fieldName: 'nodeid' });
-        obj.powerfile.ensureIndex({ fieldName: 'time', expireAfterSeconds: 60 * 60 * 24 * 10 }); // Limit the power event log to 10 days (Seconds * Minutes * Hours * Days)
+        obj.powerfile.ensureIndex({ fieldName: 'time', expireAfterSeconds: expirePowerEventsSeconds });
+        obj.powerfile.remove({ time: { '$lt': new Date(Date.now() - (expirePowerEventsSeconds * 1000)) } }, { multi: true }); // Force delete older events
 
         // Setup the SMBIOS collection
-        obj.smbiosfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-smbios.db'), autoload: true });
+        obj.smbiosfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-smbios.db'), autoload: true, corruptAlertThreshold: 1 });
 
         // Setup the server stats collection and setup indexes
-        obj.serverstatsfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-stats.db'), autoload: true });
-        obj.serverstatsfile.persistence.setAutocompactionInterval(36000);
-        obj.serverstatsfile.ensureIndex({ fieldName: 'time', expireAfterSeconds: 60 * 60 * 24 * 30 }); // Limit the server stats log to 30 days (Seconds * Minutes * Hours * Days)
+        obj.serverstatsfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-stats.db'), autoload: true, corruptAlertThreshold: 1 });
+        obj.serverstatsfile.persistence.setAutocompactionInterval(86400000); // Compact once a day
+        obj.serverstatsfile.ensureIndex({ fieldName: 'time', expireAfterSeconds: expireServerStatsSeconds });
         obj.serverstatsfile.ensureIndex({ fieldName: 'expire', expireAfterSeconds: 0 }); // Auto-expire events
+        obj.serverstatsfile.remove({ time: { '$lt': new Date(Date.now() - (expireServerStatsSeconds * 1000)) } }, { multi: true }); // Force delete older events
 
         // Setup plugin info collection
-        if (parent.config.settings != null) {
+        if (obj.pluginsActive) {
             obj.pluginsfile = new Datastore({ filename: parent.getConfigFilePath('meshcentral-plugins.db'), autoload: true });
-            obj.pluginsfile.persistence.setAutocompactionInterval(36000);
+            obj.pluginsfile.persistence.setAutocompactionInterval(86400000); // Compact once a day
         }
 
         setupFunctions(func); // Completed setup of NeDB
@@ -726,19 +762,19 @@ module.exports.CreateDB = function (parent, func) {
                             conn.release();
                             const docs = [];
                             for (var i in rows) { if (rows[i].doc) { docs.push(performTypedRecordDecrypt(JSON.parse(rows[i].doc))); } }
-                            if (func) try { func(null, docs); } catch (ex) { console.log(ex); }
+                            if (func) try { func(null, docs); } catch (ex) { console.log('SQLERR1', ex); }
                         })
-                        .catch(function (err) { conn.release(); if (func) try { func(err); } catch (ex) { console.log(ex); } });
-                }).catch(function (err) { if (func) { try { func(err); } catch (ex) { console.log(ex); } } });
+                        .catch(function (err) { conn.release(); if (func) try { func(err); } catch (ex) { console.log('SQLERR2', ex); } });
+                }).catch(function (err) { if (func) { try { func(err); } catch (ex) { console.log('SQLERR3', ex); } } });
         } else if (obj.databaseType == 5) { // MySQL
             Datastore.query(query, args, function (error, results, fields) {
                 if (error != null) {
-                    if (func) try { func(error); } catch (ex) { console.log(ex); }
+                    if (func) try { func(error); } catch (ex) { console.log('SQLERR4', ex); }
                 } else {
                     var docs = [];
                     for (var i in results) { if (results[i].doc) { docs.push(JSON.parse(results[i].doc)); } }
                     //console.log(docs);
-                    if (func) { try { func(null, docs); } catch (ex) { console.log(ex); } }
+                    if (func) { try { func(null, docs); } catch (ex) { console.log('SQLERR5', ex); } }
                 }
             });
         }
@@ -789,15 +825,31 @@ module.exports.CreateDB = function (parent, func) {
             // Database actions on the main collection (MariaDB or MySQL)
             obj.Set = function (value, func) {
                 var extra = null, extraex = null;
+                value = common.escapeLinksFieldNameEx(value);
                 if (value.meshid) { extra = value.meshid; } else if (value.email) { extra = 'email/' + value.email; }
                 if ((value.type == 'node') && (value.intelamt != null) && (value.intelamt.uuid != null)) { extraex = 'uuid/' + value.intelamt.uuid; }
                 sqlDbQuery('REPLACE INTO meshcentral.main VALUE (?, ?, ?, ?, ?, ?)', [value._id, (value.type ? value.type : null), ((value.domain != null) ? value.domain : null), extra, extraex, JSON.stringify(performTypedRecordEncrypt(value))], func);
             }
-            obj.Get = function (_id, func) { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE id = ?', [_id], func); }
+            obj.Get = function (_id, func) {
+                sqlDbQuery('SELECT doc FROM meshcentral.main WHERE id = ?', [_id], function (err, docs) {
+                    if ((docs != null) && (docs.length > 0) && (docs[0].links != null)) { docs[0] = common.unEscapeLinksFieldName(docs[0]); }
+                    func(err, docs);
+                });
+            }
             obj.GetAll = function (func) { sqlDbQuery('SELECT domain, doc FROM meshcentral.main', null, func); }
             obj.GetHash = function (id, func) { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE id = ?', [id], func); }
             obj.GetAllTypeNoTypeField = function (type, domain, func) { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE type = ? AND domain = ?', [type, domain], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, docs); }); };
-            obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, domain, type, id, func) { if (id && (id != '')) { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE id = ? AND type = ? AND domain = ? AND extra IN (?)', [id, type, domain, meshes], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, docs); }); } else { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE type = ? AND domain = ? AND extra IN (?)', [type, domain, meshes], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, docs); }); } };
+            obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, extrasids, domain, type, id, func) {
+                if (id && (id != '')) {
+                    sqlDbQuery('SELECT doc FROM meshcentral.main WHERE id = ? AND type = ? AND domain = ? AND extra IN (?)', [id, type, domain, meshes], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, docs); });
+                } else {
+                    if (extrasids == null) {
+                        sqlDbQuery('SELECT doc FROM meshcentral.main WHERE type = ? AND domain = ? AND extra IN (?)', [type, domain, meshes], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, docs); });
+                    } else {
+                        sqlDbQuery('SELECT doc FROM meshcentral.main WHERE type = ? AND domain = ? AND (extra IN (?) OR id IN (?))', [type, domain, meshes, extrasids], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, docs); });
+                    }
+                }
+            };
             obj.GetAllType = function (type, func) { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE type = ?', [type], func); }
             obj.GetAllIdsOfType = function (ids, domain, type, func) { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE id IN (?) AND domain = ? AND type = ?', [ids, domain, type], func); }
             obj.GetUserWithEmail = function (domain, email, func) { sqlDbQuery('SELECT doc FROM meshcentral.main WHERE domain = ? AND extra = ?', [domain, 'email/' + email], func); }
@@ -910,7 +962,7 @@ module.exports.CreateDB = function (parent, func) {
             }
 
             // Plugin operations
-            if (parent.config.settings.plugins != null) {
+            if (obj.pluginsActive) {
                 obj.addPlugin = function (plugin, func) { sqlDbQuery('INSERT INTO meshcentral.plugin VALUE (?, ?)', [null, JSON.stringify(value)], func); }; // Add a plugin
                 obj.getPlugins = function (func) { sqlDbQuery('SELECT doc FROM meshcentral.plugin', null, func); }; // Get all plugins
                 obj.getPlugin = function (id, func) { sqlDbQuery('SELECT doc FROM meshcentral.plugin WHERE id = ?', [id], func); }; // Get plugin
@@ -920,7 +972,7 @@ module.exports.CreateDB = function (parent, func) {
             }
         } else if (obj.databaseType == 3) {
             // Database actions on the main collection (MongoDB)
-            obj.Set = function (data, func) { obj.file.replaceOne({ _id: data._id }, performTypedRecordEncrypt(data), { upsert: true }, func); };
+            obj.Set = function (data, func) { data = common.escapeLinksFieldNameEx(data); obj.file.replaceOne({ _id: data._id }, performTypedRecordEncrypt(data), { upsert: true }, func); };
             obj.Get = function (id, func) {
                 if (arguments.length > 2) {
                     var parms = [func];
@@ -932,20 +984,36 @@ module.exports.CreateDB = function (parent, func) {
                         userCallback.apply(obj, _func2.userArgs);
                     };
                     func2.userArgs = parms;
-                    obj.file.find({ _id: id }).toArray(function (err, docs) { func2(err, performTypedRecordDecrypt(docs)); });
+                    obj.file.find({ _id: id }).toArray(function (err, docs) {
+                        if ((docs != null) && (docs.length > 0) && (docs[0].links != null)) { docs[0] = common.unEscapeLinksFieldName(docs[0]); }
+                        func2(err, performTypedRecordDecrypt(docs));
+                    });
                 } else {
-                    obj.file.find({ _id: id }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                    obj.file.find({ _id: id }).toArray(function (err, docs) {
+                        if ((docs != null) && (docs.length > 0) && (docs[0].links != null)) { docs[0] = common.unEscapeLinksFieldName(docs[0]); }
+                        func(err, performTypedRecordDecrypt(docs));
+                    });
                 }
             };
             obj.GetAll = function (func) { obj.file.find({}).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetHash = function (id, func) { obj.file.find({ _id: id }).project({ _id: 0, hash: 1 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetAllTypeNoTypeField = function (type, domain, func) { obj.file.find({ type: type, domain: domain }).project({ type: 0 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
-            obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, domain, type, id, func) { var x = { type: type, domain: domain, meshid: { $in: meshes } }; if (id) { x._id = id; } obj.file.find(x, { type: 0 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
+            obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, extrasids, domain, type, id, func) {
+                if (extrasids == null) {
+                    var x = { type: type, domain: domain, meshid: { $in: meshes } };
+                    if (id) { x._id = id; }
+                    obj.file.find(x, { type: 0 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                } else {
+                    var x = { type: type, domain: domain, $or: [ { meshid: { $in: meshes } }, { _id: { $in: extrasids } } ] };
+                    if (id) { x._id = id; }
+                    obj.file.find(x, { type: 0 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                }
+            };
             obj.GetAllType = function (type, func) { obj.file.find({ type: type }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetAllIdsOfType = function (ids, domain, type, func) { obj.file.find({ type: type, domain: domain, _id: { $in: ids } }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetUserWithEmail = function (domain, email, func) { obj.file.find({ type: 'user', domain: domain, email: email }).project({ type: 0 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetUserWithVerifiedEmail = function (domain, email, func) { obj.file.find({ type: 'user', domain: domain, email: email, emailVerified: true }).project({ type: 0 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
-            obj.Remove = function (id) { obj.file.deleteOne({ _id: id }); };
+            obj.Remove = function (id, func) { obj.file.deleteOne({ _id: id }, func); };
             obj.RemoveAll = function (func) { obj.file.deleteMany({}, { multi: true }, func); };
             obj.RemoveAllOfType = function (type, func) { obj.file.deleteMany({ type: type }, { multi: true }, func); };
             obj.InsertMany = function (data, func) { obj.file.insertMany(data, func); };
@@ -1041,7 +1109,7 @@ module.exports.CreateDB = function (parent, func) {
             }
 
             // Plugin operations
-            if (parent.config.settings.plugins != null) {
+            if (obj.pluginsActive) {
                 obj.addPlugin = function (plugin, func) { plugin.type = 'plugin'; obj.pluginsfile.insertOne(plugin, func); }; // Add a plugin
                 obj.getPlugins = function (func) { obj.pluginsfile.find({ type: 'plugin' }).project({ type: 0 }).sort({ name: 1 }).toArray(func); }; // Get all plugins
                 obj.getPlugin = function (id, func) { id = require('mongodb').ObjectID(id); obj.pluginsfile.find({ _id: id }).sort({ name: 1 }).toArray(func); }; // Get plugin
@@ -1052,7 +1120,7 @@ module.exports.CreateDB = function (parent, func) {
 
         } else {
             // Database actions on the main collection (NeDB and MongoJS)
-            obj.Set = function (data, func) { var xdata = performTypedRecordEncrypt(data); obj.file.update({ _id: xdata._id }, xdata, { upsert: true }, func); };
+            obj.Set = function (data, func) { data = common.escapeLinksFieldNameEx(data); var xdata = performTypedRecordEncrypt(data); obj.file.update({ _id: xdata._id }, xdata, { upsert: true }, func); };
             obj.Get = function (id, func) {
                 if (arguments.length > 2) {
                     var parms = [func];
@@ -1064,20 +1132,41 @@ module.exports.CreateDB = function (parent, func) {
                         userCallback.apply(obj, _func2.userArgs);
                     };
                     func2.userArgs = parms;
-                    obj.file.find({ _id: id }, function (err, docs) { func2(err, performTypedRecordDecrypt(docs)); });
+                    obj.file.find({ _id: id }, function (err, docs) {
+                        if ((docs != null) && (docs.length > 0) && (docs[0].links != null)) { docs[0] = common.unEscapeLinksFieldName(docs[0]); }
+                        func2(err, performTypedRecordDecrypt(docs));
+                    });
                 } else {
-                    obj.file.find({ _id: id }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                    obj.file.find({ _id: id }, function (err, docs) {
+                        if ((docs != null) && (docs.length > 0) && (docs[0].links != null)) { docs[0] = common.unEscapeLinksFieldName(docs[0]); }
+                        func(err, performTypedRecordDecrypt(docs));
+                    });
                 }
             };
             obj.GetAll = function (func) { obj.file.find({}, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetHash = function (id, func) { obj.file.find({ _id: id }, { _id: 0, hash: 1 }, func); };
             obj.GetAllTypeNoTypeField = function (type, domain, func) { obj.file.find({ type: type, domain: domain }, { type: 0 }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
-            obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, domain, type, id, func) { var x = { type: type, domain: domain, meshid: { $in: meshes } }; if (id) { x._id = id; } obj.file.find(x, { type: 0 }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
+            //obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, domain, type, id, func) {
+                //var x = { type: type, domain: domain, meshid: { $in: meshes } };
+                //if (id) { x._id = id; }
+                //obj.file.find(x, { type: 0 }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+            //};
+            obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, extrasids, domain, type, id, func) {
+                if (extrasids == null) {
+                    var x = { type: type, domain: domain, meshid: { $in: meshes } };
+                    if (id) { x._id = id; }
+                    obj.file.find(x, { type: 0 }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                } else {
+                    var x = { type: type, domain: domain, $or: [{ meshid: { $in: meshes } }, { _id: { $in: extrasids } }] };
+                    if (id) { x._id = id; }
+                    obj.file.find(x, { type: 0 }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                }
+            };
             obj.GetAllType = function (type, func) { obj.file.find({ type: type }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetAllIdsOfType = function (ids, domain, type, func) { obj.file.find({ type: type, domain: domain, _id: { $in: ids } }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetUserWithEmail = function (domain, email, func) { obj.file.find({ type: 'user', domain: domain, email: email }, { type: 0 }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetUserWithVerifiedEmail = function (domain, email, func) { obj.file.find({ type: 'user', domain: domain, email: email, emailVerified: true }, { type: 0 }, function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
-            obj.Remove = function (id) { obj.file.remove({ _id: id }); };
+            obj.Remove = function (id, func) { obj.file.remove({ _id: id }, func); };
             obj.RemoveAll = function (func) { obj.file.remove({}, { multi: true }, func); };
             obj.RemoveAllOfType = function (type, func) { obj.file.remove({ type: type }, { multi: true }, func); };
             obj.InsertMany = function (data, func) { obj.file.insert(data, func); };
@@ -1169,7 +1258,7 @@ module.exports.CreateDB = function (parent, func) {
             }
 
             // Plugin operations
-            if (parent.config.settings.plugins != null) {
+            if (obj.pluginsActive) {
                 obj.addPlugin = function (plugin, func) { plugin.type = 'plugin'; obj.pluginsfile.insert(plugin, func); }; // Add a plugin
                 obj.getPlugins = function (func) { obj.pluginsfile.find({ 'type': 'plugin' }, { 'type': 0 }).sort({ name: 1 }).exec(func); }; // Get all plugins
                 obj.getPlugin = function (id, func) { obj.pluginsfile.find({ _id: id }).sort({ name: 1 }).exec(func); }; // Get plugin
@@ -1264,7 +1353,7 @@ module.exports.CreateDB = function (parent, func) {
                         } else {
                             archive = archiver('zip', { zlib: { level: 9 } });
                         }
-                        output.on('close', function () { obj.performingBackup = false; setTimeout(function () { try { parent.fs.unlink(newBackupPath + '.archive', function () { }); } catch (ex) { console.log(ex); } }, 5000); });
+                        output.on('close', function () { obj.performingBackup = false; obj.performCloudBackup(newAutoBackupPath + '.zip'); setTimeout(function () { try { parent.fs.unlink(newBackupPath + '.archive', function () { }); } catch (ex) { console.log(ex); } }, 5000); });
                         output.on('end', function () { });
                         archive.on('warning', function (err) { console.log('Backup warning: ' + err); });
                         archive.on('error', function (err) { console.log('Backup error: ' + err); });
@@ -1285,7 +1374,7 @@ module.exports.CreateDB = function (parent, func) {
                 } else {
                     archive = archiver('zip', { zlib: { level: 9 } });
                 }
-                output.on('close', function () { obj.performingBackup = false; });
+                output.on('close', function () { obj.performingBackup = false; obj.performCloudBackup(newAutoBackupPath + '.zip'); });
                 output.on('end', function () { });
                 archive.on('warning', function (err) { console.log('Backup warning: ' + err); });
                 archive.on('error', function (err) { console.log('Backup error: ' + err); });
@@ -1319,10 +1408,70 @@ module.exports.CreateDB = function (parent, func) {
         return 0;
     }
 
+    // Perform cloud backup
+    obj.performCloudBackup = function (filename) {
+        if (typeof parent.config.settings.autobackup.googledrive != 'object') return;
+        obj.Get('GoogleDriveBackup', function (err, docs) {
+            if ((err != null) || (docs.length != 1) || (docs[0].state != 3)) return;
+            const {google} = require('googleapis');
+            const oAuth2Client = new google.auth.OAuth2(docs[0].clientid, docs[0].clientsecret, "urn:ietf:wg:oauth:2.0:oob");
+            oAuth2Client.on('tokens', function(tokens) { if (tokens.refresh_token) { docs[0].token = tokens.refresh_token; parent.db.Set(docs[0]); } }); // Update the token in the database
+            oAuth2Client.setCredentials(docs[0].token);
+            const drive = google.drive({ version: 'v3', auth: oAuth2Client });
+            const createdTimeSort = function (a, b) { if (a.createdTime > b.createdTime) return 1; if (a.createdTime < b.createdTime) return -1; return 0; }
+
+            // Called once we know our folder id, clean up and upload a backup.
+            var useGoogleDrive = function (folderid) {
+                // List files to see if we need to delete older ones
+                if (typeof parent.config.settings.autobackup.googledrive.maxfiles == 'number') {
+                    drive.files.list({
+                        q: 'trashed = false and \'' + folderid + '\' in parents',
+                        fields: 'nextPageToken, files(id, name, size, createdTime)',
+                    }, function (err, res) {
+                        if (err) { console.log('GoogleDrive (files.list) error: ' + err); return; }
+                        // Delete any old files if more than 10 files are present in the backup folder.
+                        res.data.files.sort(createdTimeSort);
+                        while (res.data.files.length >= parent.config.settings.autobackup.googledrive.maxfiles) { drive.files.delete({ fileId: res.data.files.shift().id }, function (err, res) { }); }
+                    });
+                }
+
+                //console.log('Uploading...');
+                // Upload the backup
+                drive.files.create({
+                    requestBody: { name: require('path').basename(filename), mimeType: 'text/plain', parents: [folderid] },
+                    media: { mimeType: 'application/zip', body: require('fs').createReadStream(filename) },
+                }, function (err, res) {
+                    if (err) { console.log('GoogleDrive (files.create) error: ' + err); return; }
+                    //console.log('Upload done.');
+                });
+            }
+
+            // Fetch the folder name
+            var folderName = 'MeshCentral-Backups';
+            if (typeof parent.config.settings.autobackup.googledrive.foldername == 'string') { folderName = parent.config.settings.autobackup.googledrive.foldername; }
+
+            // Find our backup folder, create one if needed.
+            drive.files.list({
+                q: 'mimeType = \'application/vnd.google-apps.folder\' and name=\'' + folderName + '\' and trashed = false',
+                fields: 'nextPageToken, files(id, name)',
+            }, function (err, res) {
+                if (err) { console.log('GoogleDrive error: ' + err); return; }
+                if (res.data.files.length == 0) {
+                    // Create a folder
+                    drive.files.create({ resource: { 'name': folderName, 'mimeType': 'application/vnd.google-apps.folder' }, fields: 'id' }, function (err, file) {
+                        if (err) { console.log('GoogleDrive (folder.create) error: ' + err); return; }
+                        useGoogleDrive(file.data.id);
+                    });
+                } else { useGoogleDrive(res.data.files[0].id); }
+            });
+        });
+    }
+
     function padNumber(number, digits) { return Array(Math.max(digits - String(number).length + 1, 0)).join(0) + number; }
 
     // Called when a node has changed
     function dbNodeChange(nodeChange, added) {
+        common.unEscapeLinksFieldName(nodeChange.fullDocument);
         const node = nodeChange.fullDocument;
         if (node.intelamt && node.intelamt.pass) { delete node.intelamt.pass; } // Remove the Intel AMT password before eventing this.
         parent.DispatchEvent(['*', node.meshid], obj, { etype: 'node', action: (added ? 'addnode' : 'changenode'), node: node, nodeid: node._id, domain: node.domain, nolog: 1 });

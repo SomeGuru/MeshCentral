@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html style=height:100%>
+<html lang="en" style=height:100%>
     <head>
         <title>{{{title}}} - Messenger</title>
         <meta http-equiv=X-UA-Compatible content="IE=edge">
@@ -7,13 +7,15 @@
         <meta name=format-detection content="telephone=no">
         <link type="text/css" href="styles/style.css" media="screen" rel="stylesheet" title="CSS" />
         <link type="text/css" href="styles/messenger.css" media="screen" rel="stylesheet" title="CSS" />
-        <script type="text/javascript" src="scripts/common-0.0.1.js"></script>
-        <script type="text/javascript" src="scripts/filesaver.js"></script>
+        <link rel="apple-touch-icon" href="/favicon-303x303.png" />
+        <script type="text/javascript" src="scripts/common-0.0.1{{min}}.js"></script>
+        <script type="text/javascript" src="scripts/filesaver.min.js"></script>
     </head>
     <body style="font-family:Arial,Helvetica,sans-serif">
         <div id="xtop" style="position:absolute;left:0;right:0;top:0;height:38px;background-color:#036;color:#c8c8c8;box-shadow:3px 3px 10px gray">
             <div style="position:absolute;background-color:#036;right:0;height:38px">
-                <div id="notifyButton" class="icon13 topButton" style="margin-right:4px;display:none" title="Enable browser notification" onclick="enableNotificationsButtonClick()"></div>
+                <div id="saveButton" class="icon15 topButton" style="margin-right:4px" title="Save conversation" onclick="saveChatSession()"></div>
+                <div id="notifyButton" class="icon13 topButton" style="display:none" title="Enable browser notification" onclick="enableNotificationsButtonClick()"></div>
                 <div id="fileButton" class="icon4 topButton" title="Share a file" style="display:none" onclick="fileButtonClick()"></div>
                 <div id="camButton" class="icon2 topButton" title="Activate camera & microphone" style="display:none" onclick="camButtonClick()"></div>
                 <div id="micButton" class="icon6 topButton" title="Activate microphone" style="display:none" onclick="micButtonClick()"></div>
@@ -22,8 +24,8 @@
             <div style="padding-top:9px;padding-left:6px;font-size:20px;display:inline-block"><b><span id="xtitle">MeshMessenger</span></b></div>
         </div>
         <div id="xmiddle" style="position:absolute;left:0;right:0;top:38px;bottom:30px">
-            <div style="position:absolute;left:0;right:0;top:0;bottom:0;overflow-y:scroll">
-                <div id="xmsg" style="position:absolute;left:0;right:0;bottom:0;padding:5px"></div>
+            <div id="xmsgparent" style="position:absolute;left:0;right:0;top:0;bottom:0;overflow-y:scroll">
+                <div id="xmsg" style="padding:5px"></div>
             </div>
         </div>
         <div id="xbottom" style="position:absolute;left:0;right:0;bottom:0px;height:30px;background-color:#036">
@@ -42,9 +44,11 @@
         <input id="uploadFileInput" type="file" multiple style="display:none">
         <script type="text/javascript" onunload="onUnLoad()">
             var userInputFocus = 0;
-            var args = parseUriArgs();
             var socket = null;                  // Websocket object
             var state = 0;                      // Connection state. 0 = Disconnected, 1 = Connecting, 2 = Connected.
+            var args = parseUriArgs();
+            if (args.key && (isAlphaNumeric(args.key) == false)) { delete args.key; }
+            if (args.locale && (isAlphaNumeric(args.locale) == false)) { delete args.locale; }
 
             // WebRTC sessions and data, audio and video channels
             var random = Math.random();         // Selected random, larger value initiates WebRTC.
@@ -57,7 +61,9 @@
             var notification = null;
             getUserMediaSupport(function (x) { userMediaSupport = x; })
             var webrtcconfiguration = '{{{webrtconfig}}}';
-            if (webrtcconfiguration == '') { webrtcconfiguration = null; } else { try { webrtcconfiguration = JSON.parse(decodeURIComponent(webrtcconfiguration)); } catch (ex) { console.log('Invalid WebRTC config: \"' + webrtcconfiguration + '\".'); webrtcconfiguration = null; } }
+            if (webrtcconfiguration == '') { webrtcconfiguration = null; } else { try { webrtcconfiguration = JSON.parse(decodeURIComponent(webrtcconfiguration)); } catch (ex) { console.log('Invalid WebRTC config: "' + webrtcconfiguration + '".'); webrtcconfiguration = null; } }
+            var windowFocus = true;
+            var chatTextSession = new Date().toString() + '\r\n';
 
             // File transfer state
             var fileUploads = [];
@@ -66,10 +72,14 @@
             var currentFileDownload = null;
 
             // Set the title
-            if (args.title) { QH('xtitle', args.title.split(' ').join('&nbsp')); document.title = document.title + ' - ' + args.title; }
+            if (args.title) { QH('xtitle', EscapeHtml(args.title).split(' ').join('&nbsp')); document.title = document.title + ' - ' + args.title; }
             
             // Setup web notifications
             if (Notification) { QV('notifyButton', Notification.permission != 'granted'); }
+
+            // Track window focus
+            window.addEventListener('focus', function (event) { windowFocus = true; }, false);
+            window.addEventListener('blur', function (event) { windowFocus = false; }, false);
 
             // Listen to drag & drop events
             document.addEventListener('dragover', haltEvent, false);
@@ -112,7 +122,7 @@
             }
 
             function onUserInputFocus(x) { userInputFocus = x; }
-            function displayClear() { QH('xmsg', ''); cancelAllFileTransfers(); fileUploads = [], fileDownloads = {}; }
+            function displayClear() { chatTextSession = new Date().toString() + '\r\n'; QH('xmsg', ''); cancelAllFileTransfers(); fileUploads = [], fileDownloads = {}; }
 
             // Polyfill FileReader if needed
             if (!FileReader.prototype.readAsBinaryString) {
@@ -147,8 +157,9 @@
 
             // Display a control message
             function displayControl(msg) {
-                QA('xmsg', '<div style="clear:both"><div style="color:gray;float:left;margin-bottom:2px">' + msg + '</div><div></div></div>');
-                Q('xmsg').scrollTop = Q('xmsg').scrollHeight;
+                chatTextSession += ((new Date()).toLocaleTimeString() + ' - ' + "Control" + '> ' + msg + '\r\n');
+                QA('xmsg', '<div style="clear:both"><div style="color:gray;float:left;margin-bottom:2px">' + EscapeHtml(msg) + '</div><div></div></div>');
+                Q('xmsgparent').scrollTop = Q('xmsgparent').scrollHeight;//Q('xmsg').scrollHeight;
             }
 
             function displayLocalVideo(active) { QV('localVideo', active); adjustVideoWindows(); }
@@ -161,12 +172,13 @@
 
             // Display a message from the remote user
             function displayRemote(msg) {
-                QA('xmsg', '<div style="clear:both"><div class="remoteBubble">' + msg + '</div><div></div></div>');
-                Q('xmsg').scrollTop = Q('xmsg').scrollHeight;
+                chatTextSession += ((new Date()).toLocaleTimeString() + ' - ' + "Remote" + '> ' + msg + '\r\n');
+                QA('xmsg', '<div style="clear:both"><div class="remoteBubble">' + EscapeHtml(msg) + '</div><div></div></div>');
+                Q('xmsgparent').scrollTop = Q('xmsgparent').scrollHeight;
 
                 // If web notifications are granted, use it.
                 if (Notification) { QV('notifyButton', Notification.permission != 'granted'); }
-                if (Notification && (Notification.permission == 'granted')) {
+                if (Notification && (windowFocus == false) && (Notification.permission == 'granted')) {
                     if (notification != null) { notification.close(); notification = null; }
                     if (args.title) {
                         notification = new Notification("MeshMessenger" + ' - ' + args.title, { body: msg });
@@ -183,14 +195,14 @@
                 var outtext = Q('xouttext').value;
                 if (outtext.length > 0) {
                     Q('xouttext').value = '';
-                    QA('xmsg', '<div style="clear:both"><div class="localBubble">' + outtext + '</div><div></div></div>');
-                    Q('xmsg').scrollTop = Q('xmsg').scrollHeight;
+                    chatTextSession += ((new Date()).toLocaleTimeString() + ' - ' + "Local" + '> ' + outtext + '\r\n');
+                    QA('xmsg', '<div style="clear:both"><div class="localBubble">' + EscapeHtml(outtext) + '</div><div></div></div>');
+                    Q('xmsgparent').scrollTop = Q('xmsgparent').scrollHeight;
                     send({ action: 'chat', msg: outtext });
                 }
             }
 
             function haltEvent(e) { if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); return false; }
-            function parseUriArgs() { var name, r = {}, parsedUri = window.document.location.href.split(/[\?&|\=]/); parsedUri.splice(0, 1); for (x in parsedUri) { switch (x % 2) { case 0: { name = decodeURIComponent(parsedUri[x]); break; } case 1: { r[name] = decodeURIComponent(parsedUri[x]); var x = parseInt(r[name]); if (x == r[name]) { r[name] = x; } break; } default: { break; } } } return r; }
 
             // Update user controls
             function updateControls() {
@@ -418,8 +430,9 @@
                 if (state != 2) return;
                 file.id = Math.random();
                 fileUploads.push(file);
+                chatTextSession += ((new Date()).toLocaleTimeString() + ' - ' + "Upload" + '> ' + file.name + ' (' + file.size + ' ' + "bytes" + ')\r\n');
                 QA('xmsg', '<div style="clear:both"></div><div id="FILEUP-' + file.id + '" class="localBubble" style="width:240px;cursor:pointer" onclick="cancelFileTransfer(\'' + file.id + '\')"><div id="FILEUP-ICON-' + file.id + '" class="fileicon" style="float:left;width:32px;height:32px"></div><div><div id="FILEUP-NAME-' + file.id + '" style="height:16px;overflow:hidden;white-space:nowrap;" title="' + file.name + '">' + file.name + '</div><div style="width:200px;background-color:lightgray;margin-left:32px;border-radius:3px;margin-top:3px;height:11px"><div id="FILEUP-PROGRESS-' + file.id + '" style="width:0px;background-color:green;border-radius:3px;height:11px">&nbsp;</div></div></div></div>');
-                Q('xmsg').scrollTop = Q('xmsg').scrollHeight;
+                Q('xmsgparent').scrollTop = Q('xmsgparent').scrollHeight;
                 send({ action: 'file', size: file.size, id: file.id, type: file.type, name: file.name });
                 if (currentFileUpload == null) continueFileUpload();
             }
@@ -427,8 +440,9 @@
             function startFileDownload(file) {
                 if (state != 2) return;
                 fileDownloads[file.id] = file;
+                chatTextSession += ((new Date()).toLocaleTimeString() + ' - ' + "Download" + '> ' + file.name + ' (' + file.size + ' ' + "bytes" + ')\r\n');
                 QA('xmsg', '<div style="clear:both"></div><div id="FILEUP-' + file.id + '" class="remoteBubble" style="width:240px;cursor:pointer" onclick="saveFileTransfer(\'' + file.id + '\')"><div id="FILEUP-ICON-' + file.id + '" class="fileicon" style="float:left;width:32px;height:32px"></div><div><div id="FILEUP-NAME-' + file.id + '" style="height:16px;overflow:hidden;white-space:nowrap;" title="' + file.name + '">' + file.name + '</div><div style="width:200px;background-color:lightgray;margin-left:32px;border-radius:3px;margin-top:3px;height:11px"><div id="FILEUP-PROGRESS-' + file.id + '" style="width:0px;background-color:green;border-radius:3px;height:11px">&nbsp;</div></div></div></div>');
-                Q('xmsg').scrollTop = Q('xmsg').scrollHeight;
+                Q('xmsgparent').scrollTop = Q('xmsgparent').scrollHeight;
             }
 
             // Change the file icon and progress
@@ -628,6 +642,10 @@
                 } else {
                     displayControl("Error: No connection key specified.");
                 }
+            }
+
+            function saveChatSession() {
+                saveAs(data2blob(chatTextSession), "ChatSession");
             }
 
             start();

@@ -97,6 +97,22 @@ module.exports.CertificateOperations = function (parent) {
                     if ((r.certs.length < 2) || (r.keys.length != 1)) continue;
                 }
 
+                // Reorder the certificates from leaf to root.
+                var orderedCerts = [], or = [], currenthash = null, orderingError = false;;
+                while ((orderingError == false) && (orderedCerts.length < r.certs.length)) {
+                    orderingError = true;
+                    for (var k in r.certs) {
+                        if (((currenthash == null) && (r.certs[k].subject.hash == r.certs[k].issuer.hash)) || ((r.certs[k].issuer.hash == currenthash) && (r.certs[k].subject.hash != r.certs[k].issuer.hash))) {
+                            currenthash = r.certs[k].subject.hash;
+                            orderedCerts.unshift(Buffer.from(obj.forge.asn1.toDer(obj.pki.certificateToAsn1(r.certs[k])).data, 'binary').toString('base64'));
+                            or.unshift(r.certs[k]);
+                            orderingError = false;
+                        }
+                    }
+                }
+                if (orderingError == true) continue;
+                r.certs = or;
+
                 /*
                 // Debug: Display all certs & key as PEM
                 for (var k in r.certs) {
@@ -138,20 +154,6 @@ module.exports.CertificateOperations = function (parent) {
                 } else {
                     acmconfig.cn = certCommonName.value;
                 }
-
-                // Reorder the certificates from leaf to root.
-                var orderedCerts = [], currenthash = null, orderingError = false;;
-                while ((orderingError == false) && (orderedCerts.length < r.certs.length)) {
-                    orderingError = true;
-                    for (var k in r.certs) {
-                        if (((currenthash == null) && (r.certs[k].subject.hash == r.certs[k].issuer.hash)) || ((r.certs[k].issuer.hash == currenthash) && (r.certs[k].subject.hash != r.certs[k].issuer.hash))) {
-                            currenthash = r.certs[k].subject.hash;
-                            orderedCerts.unshift(Buffer.from(obj.forge.asn1.toDer(obj.pki.certificateToAsn1(r.certs[k])).data, 'binary').toString('base64'));
-                            orderingError = false;
-                        }
-                    }
-                }
-                if (orderingError == true) continue;
 
                 delete acmconfig.cert;
                 delete acmconfig.certpass;
@@ -200,12 +202,17 @@ module.exports.CertificateOperations = function (parent) {
         if (u.protocol == 'https:') {
             // Read the certificate from HTTPS
             if (hostname == null) { hostname = u.hostname; }
-            const tlssocket = obj.tls.connect((u.port ? u.port : 443), u.hostname, { servername: hostname, rejectUnauthorized: false }, function () { this.xxcert = this.getPeerCertificate(); this.end(); });
+            parent.debug('cert', "loadCertificate() - Loading certificate from " + u.hostname + ":" + (u.port ? u.port : 443) + ", Hostname: " + hostname + "...");
+            const tlssocket = obj.tls.connect((u.port ? u.port : 443), u.hostname, { servername: hostname, rejectUnauthorized: false }, function () {
+                this.xxcert = this.getPeerCertificate();
+                parent.debug('cert', "loadCertificate() - TLS connected, " + ((this.xxcert != null) ? "got certificate." : "no certificate."));
+                try { this.destroy(); } catch (ex) { }
+                this.xxfunc(this.xxurl, (this.xxcert == null)?null:(this.xxcert.raw.toString('binary')), hostname, this.xxtag);
+            });
             tlssocket.xxurl = url;
             tlssocket.xxfunc = func;
             tlssocket.xxtag = tag;
-            tlssocket.on('end', function () { this.xxfunc(this.xxurl, this.xxcert.raw.toString('binary'), hostname, this.xxtag); });
-            tlssocket.on('error', function () { this.xxfunc(this.xxurl, null, hostname, this.xxtag); });
+            tlssocket.on('error', function (error) { try { this.destroy(); } catch (ex) { } parent.debug('cert', "loadCertificate() - TLS error: " + error); this.xxfunc(this.xxurl, null, hostname, this.xxtag); });
         } else if (u.protocol == 'file:') {
             // Read the certificate from a file
             obj.fs.readFile(url.substring(7), 'utf8', function (err, data) {
@@ -429,6 +436,11 @@ module.exports.CertificateOperations = function (parent) {
                 r.root.cert = obj.pki.certificateToPem(xroot);
                 try { obj.fs.writeFileSync(parent.getConfigFilePath('root-cert-public.crt'), r.root.cert); } catch (ex) { }
             }
+        }
+
+        // If web certificate exist, load it as default. This is useful for agent-only port. Load both certificate and private key
+        if (obj.fileExists('webserver-cert-public.crt') && obj.fileExists('webserver-cert-private.key')) {
+            r.webdefault = { cert: obj.fileLoad('webserver-cert-public.crt', 'utf8'), key: obj.fileLoad('webserver-cert-private.key', 'utf8') };
         }
 
         if (args.tlsoffload) {
@@ -669,7 +681,7 @@ module.exports.CertificateOperations = function (parent) {
             mpsPrivateKey = r.mps.key;
         }
 
-        r = { root: { cert: rootCertificate, key: rootPrivateKey }, web: { cert: webCertificate, key: webPrivateKey, ca: [] }, mps: { cert: mpsCertificate, key: mpsPrivateKey }, agent: { cert: agentCertificate, key: agentPrivateKey }, ca: calist, CommonName: commonName, RootName: rootName, AmtMpsName: mpsCommonName, dns: {}, WebIssuer: webIssuer };
+        r = { root: { cert: rootCertificate, key: rootPrivateKey }, web: { cert: webCertificate, key: webPrivateKey, ca: [] }, webdefault: { cert: webCertificate, key: webPrivateKey, ca: [] }, mps: { cert: mpsCertificate, key: mpsPrivateKey }, agent: { cert: agentCertificate, key: agentPrivateKey }, ca: calist, CommonName: commonName, RootName: rootName, AmtMpsName: mpsCommonName, dns: {}, WebIssuer: webIssuer };
 
         // Fetch the certificates names for the main certificate
         var webCertificate = obj.pki.certificateFromPem(r.web.cert);

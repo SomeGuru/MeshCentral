@@ -6,8 +6,9 @@
 * @version v0.0.1
 */
 
-var fs = require('fs');
-var path = require('path');
+const fs = require('fs');
+const path = require('path');
+//const zlib = require('zlib');
 var performCheck = false;
 var translationTable = null;
 var sourceStrings = null;
@@ -18,6 +19,7 @@ var minify = null;
 
 var meshCentralSourceFiles = [
     "../views/agentinvite.handlebars",
+    "../views/invite.handlebars",
     "../views/default.handlebars",
     "../views/default-mobile.handlebars",
     "../views/download.handlebars",
@@ -30,7 +32,63 @@ var meshCentralSourceFiles = [
     "../views/xterm.handlebars",
     "../views/message.handlebars",
     "../views/messenger.handlebars",
-    "../views/player.handlebars"
+    "../views/player.handlebars",
+    "../views/desktop.handlebars",
+    "../views/mstsc.handlebars",
+    "../emails/account-check.html",
+    "../emails/account-invite.html",
+    "../emails/account-login.html",
+    "../emails/account-reset.html",
+    "../emails/mesh-invite.html",
+    "../emails/account-check.txt",
+    "../emails/account-invite.txt",
+    "../emails/account-login.txt",
+    "../emails/account-reset.txt",
+    "../emails/mesh-invite.txt",
+    "../emails/sms-messages.txt"
+];
+
+var minifyMeshCentralSourceFiles = [
+    "../views/agentinvite.handlebars",
+    "../views/invite.handlebars",
+    "../views/default.handlebars",
+    "../views/default-mobile.handlebars",
+    "../views/download.handlebars",
+    "../views/error404.handlebars",
+    "../views/error404-mobile.handlebars",
+    "../views/login.handlebars",
+    "../views/login-mobile.handlebars",
+    "../views/terms.handlebars",
+    "../views/terms-mobile.handlebars",
+    "../views/xterm.handlebars",
+    "../views/message.handlebars",
+    "../views/messenger.handlebars",
+    "../views/player.handlebars",
+    "../views/mstsc.handlebars",
+    "../public/scripts/agent-desktop-0.0.2.js",
+    "../public/scripts/agent-redir-rtc-0.1.0.js",
+    "../public/scripts/agent-redir-ws-0.1.1.js",
+    "../public/scripts/amt-0.2.0.js",
+    "../public/scripts/amt-desktop-0.0.2.js",
+    "../public/scripts/amt-ider-ws-0.0.1.js",
+    "../public/scripts/amt-redir-ws-0.1.0.js",
+    "../public/scripts/amt-script-0.2.0.js",
+    "../public/scripts/amt-setupbin-0.1.0.js",
+    "../public/scripts/amt-terminal-0.0.2.js",
+    "../public/scripts/amt-wsman-0.2.0.js",
+    "../public/scripts/amt-wsman-ws-0.2.0.js",
+    "../public/scripts/charts.js",
+    "../public/scripts/common-0.0.1.js",
+    "../public/scripts/meshcentral.js",
+    "../public/scripts/ol.js",
+    "../public/scripts/ol3-contextmenu.js",
+    "../public/scripts/u2f-api.js",
+    "../public/scripts/xterm-addon-fit.js",
+    "../public/scripts/xterm.js",
+    "../public/scripts/zlib-adler32.js",
+    "../public/scripts/zlib-crc32.js",
+    "../public/scripts/zlib-inflate.js",
+    "../public/scripts/zlib.js"
 ];
 
 // True is this module is run directly using NodeJS
@@ -120,6 +178,9 @@ function startEx(argv) {
         log('');
         log('  TRANSLATEALL (languagefile) (language code)');
         log('    Translate all MeshCentral strings using the languages.json file.');
+        log('');
+        log('  MINIFY [sourcefile]');
+        log('    Minify a single file.');
         log('');
         log('  MINIFYALL');
         log('    Minify the main MeshCentral english web pages.');
@@ -247,8 +308,8 @@ function startEx(argv) {
     }
 
     if (command == 'minifyall') {
-        for (var i in meshCentralSourceFiles) {
-            var outname = meshCentralSourceFiles[i];
+        for (var i in minifyMeshCentralSourceFiles) {
+            var outname = minifyMeshCentralSourceFiles[i];
             var outnamemin = null;
             if (outname.endsWith('.handlebars')) {
                 outnamemin = (outname.substring(0, outname.length - 11) + '-min.handlebars');
@@ -256,14 +317,36 @@ function startEx(argv) {
                 outnamemin = (outname.substring(0, outname.length - 5) + '-min.html');
             } else if (outname.endsWith('.htm')) {
                 outnamemin = (outname.substring(0, outname.length - 4) + '-min.htm');
+            } else if (outname.endsWith('.js')) {
+                outnamemin = (outname.substring(0, outname.length - 3) + '-min.js');
             } else {
                 outnamemin = (outname, outname + '.min');
             }
             log('Generating ' + outnamemin + '...');
 
+            /*
             // Minify the file
-            if (minifyLib = 2) {
-                var minifiedOut = minify(fs.readFileSync(outname).toString(), {
+            if (minifyLib == 1) {
+                minify.file({
+                    file: outname,
+                    dist: outnamemin
+                }, function (e, compress) {
+                    if (e) { log('ERROR ', e); return done(); }
+                    compress.run((e) => { e ? log('Minification fail', e) : log('Minification sucess'); minifyDone(); });
+                }
+                );
+            }
+            */
+
+            // Minify the file
+            if (minifyLib == 2) {
+                var inFile = fs.readFileSync(outname).toString();
+
+                // Perform minification pre-processing
+                if (outname.endsWith('.handlebars') >= 0) { inFile = inFile.split('{{{pluginHandler}}}').join('"{{{pluginHandler}}}"'); }
+                if (outname.endsWith('.js')) { inFile = '<script>' + inFile + '</script>'; }
+
+                var minifiedOut = minify(inFile, {
                     collapseBooleanAttributes: true,
                     collapseInlineTagWhitespace: false, // This is not good.
                     collapseWhitespace: true,
@@ -279,7 +362,27 @@ function startEx(argv) {
                     preserveLineBreaks: false,
                     useShortDoctype: true
                 });
+
+                // Perform minification post-processing
+                if (outname.endsWith('.js')) { minifiedOut = minifiedOut.substring(8, minifiedOut.length - 9); }
+                if (outname.endsWith('.handlebars') >= 0) { minifiedOut = minifiedOut.split('"{{{pluginHandler}}}"').join('{{{pluginHandler}}}'); }
+
                 fs.writeFileSync(outnamemin, minifiedOut, { flag: 'w+' });
+
+                /*
+                if (outname.endsWith('.js')) {
+                    var compressHandler = function compressHandlerFunc(err, buffer, outnamemin2) {
+                        if (err == null) {
+                            console.log('GZIP', compressHandlerFunc.outname);
+                            fs.writeFileSync(compressHandlerFunc.outname, buffer, { flag: 'w+' });
+                        }
+                    };
+                    compressHandler.outname = outnamemin;
+                    zlib.gzip(Buffer.from(minifiedOut), compressHandler);
+                } else {
+                    fs.writeFileSync(outnamemin, minifiedOut, { flag: 'w+' });
+                }
+                */
             }
         }
     }
@@ -300,7 +403,13 @@ function startEx(argv) {
 
         // Minify the file
         if (minifyLib = 2) {
-            var minifiedOut = minify(fs.readFileSync(outname).toString(), {
+            var inFile = fs.readFileSync(outname).toString()
+
+            // Perform minification pre-processing
+            if (outname.endsWith('.handlebars') >= 0) { inFile = inFile.split('{{{pluginHandler}}}').join('"{{{pluginHandler}}}"'); }
+            if (outname.endsWith('.js')) { inFile = '<script>' + inFile + '</script>'; }
+
+            var minifiedOut = minify(inFile, {
                 collapseBooleanAttributes: true,
                 collapseInlineTagWhitespace: false, // This is not good.
                 collapseWhitespace: true,
@@ -316,6 +425,10 @@ function startEx(argv) {
                 preserveLineBreaks: false,
                 useShortDoctype: true
             });
+
+            // Perform minification post-processing
+            if (outname.endsWith('.js')) { minifiedOut = minifiedOut.substring(8, minifiedOut.length - 9); }
+            if (outname.endsWith('.handlebars') >= 0) { minifiedOut = minifiedOut.split('"{{{pluginHandler}}}"').join('{{{pluginHandler}}}'); }
             fs.writeFileSync(outnamemin, minifiedOut, { flag: 'w+' });
         }
     }
@@ -485,9 +598,11 @@ function translateEx(lang, langFileData, sources, createSubDir) {
         if ((entry['en'] != null) && (entry[lang] != null)) { translationTable[entry['en']] = entry[lang]; }
     }
     // Translate the files
-    for (var i = 0; i < sources.length; i++) { translateFromHtml(lang, sources[i], createSubDir); }
+    for (var i = 0; i < sources.length; i++) {
+        if (sources[i].endsWith('.html') || sources[i].endsWith('.htm') || sources[i].endsWith('.handlebars')) { translateFromHtml(lang, sources[i], createSubDir); }
+        else if (sources[i].endsWith('.txt')) { translateFromTxt(lang, sources[i], createSubDir); }
+    }
 }
-
 
 function extract(langFile, sources) {
     sourceStrings = {};
@@ -500,7 +615,10 @@ function extract(langFile, sources) {
             delete sourceStrings[langFileData.strings[i]['en']].xloc;
         }
     }
-    for (var i = 0; i < sources.length; i++) { extractFromHtml(sources[i]); }
+    for (var i = 0; i < sources.length; i++) {
+        if (sources[i].endsWith('.html') || sources[i].endsWith('.htm') || sources[i].endsWith('.handlebars')) { extractFromHtml(sources[i]); } 
+        else if (sources[i].endsWith('.txt')) { extractFromTxt(sources[i]); }
+    }
     var count = 0, output = [];
     for (var i in sourceStrings) {
         count++;
@@ -514,22 +632,36 @@ function extract(langFile, sources) {
     return;
 }
 
+function extractFromTxt(file) {
+    log("Processing TXT: " + path.basename(file));
+    var lines = fs.readFileSync(file).toString().split('\r\n');
+    var name = path.basename(file);
+    for (var i in lines) {
+        var line = lines[i];
+        if ((line.length > 1) && (line[0] != '~')) {
+            if (sourceStrings[line] == null) { sourceStrings[line] = { en: line, xloc: [name] }; } else { if (sourceStrings[line].xloc == null) { sourceStrings[line].xloc = []; } sourceStrings[line].xloc.push(name); }
+        }
+    }
+}
+
 function extractFromHtml(file) {
     var data = fs.readFileSync(file);
     var { JSDOM } = jsdom;
     const dom = new JSDOM(data, { includeNodeLocations: true });
     log("Processing HTML: " + path.basename(file));
-    getStrings(path.basename(file), dom.window.document.querySelector('body'));
+    getStringsHtml(path.basename(file), dom.window.document.querySelector('body'));
 }
 
-function getStrings(name, node) {
+function getStringsHtml(name, node) {
     for (var i = 0; i < node.childNodes.length; i++) {
         var subnode = node.childNodes[i];
 
         // Check if the "value" attribute exists and needs to be translated
+        var subnodeignore = false;
         if ((subnode.attributes != null) && (subnode.attributes.length > 0)) {
-            var subnodeignore = false, subnodevalue = null, subnodeplaceholder = null, subnodetitle = null;
+            var subnodevalue = null, subnodeplaceholder = null, subnodetitle = null;
             for (var j in subnode.attributes) {
+                if ((subnode.attributes[j].name == 'notrans') && (subnode.attributes[j].value == '1')) { subnodeignore = true; }
                 if ((subnode.attributes[j].name == 'type') && (subnode.attributes[j].value == 'hidden')) { subnodeignore = true; }
                 if (subnode.attributes[j].name == 'value') { subnodevalue = subnode.attributes[j].value; }
                 if (subnode.attributes[j].name == 'placeholder') { subnodeplaceholder = subnode.attributes[j].value; }
@@ -552,22 +684,24 @@ function getStrings(name, node) {
             }
         }
 
-        // Check the content of the element
-        var subname = subnode.id;
-        if (subname == null || subname == '') { subname = i; }
-        if (subnode.hasChildNodes()) {
-            getStrings(name + '->' + subname, subnode);
-        } else {
-            if (subnode.nodeValue == null) continue;
-            var nodeValue = subnode.nodeValue.trim().split('\\r').join('').split('\\n').join('').trim();
-            if ((nodeValue.length > 0) && (subnode.nodeType == 3)) {
-                if ((node.tagName != 'SCRIPT') && (node.tagName != 'STYLE') && (nodeValue.length < 8000) && (nodeValue.startsWith('{{{') == false) && (nodeValue != ' ')) {
-                    if (performCheck) { log('  "' + nodeValue + '"'); }
-                    // Add a new string to the list
-                    if (sourceStrings[nodeValue] == null) { sourceStrings[nodeValue] = { en: nodeValue, xloc: [name] }; } else { if (sourceStrings[nodeValue].xloc == null) { sourceStrings[nodeValue].xloc = []; } sourceStrings[nodeValue].xloc.push(name); }
-                } else if (node.tagName == 'SCRIPT') {
-                    // Parse JavaScript
-                    getStringFromJavaScript(name, subnode.nodeValue);
+        if (subnodeignore == false) {
+            // Check the content of the element
+            var subname = subnode.id;
+            if (subname == null || subname == '') { subname = i; }
+            if (subnode.hasChildNodes()) {
+                getStringsHtml(name + '->' + subname, subnode);
+            } else {
+                if (subnode.nodeValue == null) continue;
+                var nodeValue = subnode.nodeValue.trim().split('\\r').join('').split('\\n').join('').trim();
+                if ((nodeValue.length > 0) && (subnode.nodeType == 3)) {
+                    if ((node.tagName != 'SCRIPT') && (node.tagName != 'STYLE') && (nodeValue.length < 8000) && (nodeValue.startsWith('{{{') == false) && (nodeValue != ' ')) {
+                        if (performCheck) { log('  "' + nodeValue + '"'); }
+                        // Add a new string to the list
+                        if (sourceStrings[nodeValue] == null) { sourceStrings[nodeValue] = { en: nodeValue, xloc: [name] }; } else { if (sourceStrings[nodeValue].xloc == null) { sourceStrings[nodeValue].xloc = []; } sourceStrings[nodeValue].xloc.push(name); }
+                    } else if (node.tagName == 'SCRIPT') {
+                        // Parse JavaScript
+                        getStringFromJavaScript(name, subnode.nodeValue);
+                    }
                 }
             }
         }
@@ -588,7 +722,27 @@ function getStringFromJavaScript(name, script) {
     }
 }
 
+function translateFromTxt(lang, file, createSubDir) {
+    log("Translating TXT (" + lang + "): " + path.basename(file));
+    var lines = fs.readFileSync(file).toString().split('\r\n'), outlines = [];
+    for (var i in lines) {
+        var line = lines[i];
+        if ((line.length > 1) && (line[0] != '~')) {
+            if (translationTable[line] != null) { outlines.push(translationTable[line]); } else { outlines.push(line); }
+        } else {
+            outlines.push(line);
+        }
+    }
 
+    var outname = file, out = outlines.join('\r\n');
+    if (createSubDir != null) {
+        var outfolder = path.join(path.dirname(file), createSubDir);
+        if (fs.existsSync(outfolder) == false) { fs.mkdirSync(outfolder); }
+        outname = path.join(path.dirname(file), createSubDir, path.basename(file));
+    }
+    outname = (outname.substring(0, outname.length - 4) + '_' + lang + '.txt');
+    fs.writeFileSync(outname, out, { flag: 'w+' });
+}
 
 
 
@@ -599,6 +753,9 @@ function translateFromHtml(lang, file, createSubDir) {
     log("Translating HTML (" + lang + "): " + path.basename(file));
     translateStrings(path.basename(file), dom.window.document.querySelector('body'));
     var out = dom.serialize();
+
+    // Change the <html lang="en"> tag.
+    out = out.split('<html lang="en"').join('<html lang="' + lang + '"');
 
     var outname = file;
     var outnamemin = null;
@@ -627,7 +784,7 @@ function translateFromHtml(lang, file, createSubDir) {
         minify.file({
             file: outname,
             dist: outnamemin
-        }, (e, compress) => {
+        }, function(e, compress) {
             if (e) { log('ERROR ', e); return done(); }
             compress.run((e) => { e ? log('Minification fail', e) : log('Minification sucess'); minifyDone(); });
         }
@@ -636,6 +793,7 @@ function translateFromHtml(lang, file, createSubDir) {
 
     // Minify the file
     if (minifyLib = 2) {
+        if (outnamemin.endsWith('.handlebars') >= 0) { out = out.split('{{{pluginHandler}}}').join('"{{{pluginHandler}}}"'); }
         var minifiedOut = minify(out, {
             collapseBooleanAttributes: true,
             collapseInlineTagWhitespace: false, // This is not good.
@@ -652,6 +810,7 @@ function translateFromHtml(lang, file, createSubDir) {
             preserveLineBreaks: false,
             useShortDoctype: true
         });
+        if (outnamemin.endsWith('.handlebars') >= 0) { minifiedOut = minifiedOut.split('"{{{pluginHandler}}}"').join('{{{pluginHandler}}}'); }
         fs.writeFileSync(outnamemin, minifiedOut, { flag: 'w+' });
     }
 }
@@ -663,9 +822,11 @@ function translateStrings(name, node) {
         var subnode = node.childNodes[i];
 
         // Check if the "value" attribute exists and needs to be translated
+        var subnodeignore = false;
         if ((subnode.attributes != null) && (subnode.attributes.length > 0)) {
-            var subnodeignore = false, subnodevalue = null, subnodeindex = null, subnodeplaceholder = null, subnodeplaceholderindex = null, subnodetitle = null, subnodetitleindex = null;
+            var subnodevalue = null, subnodeindex = null, subnodeplaceholder = null, subnodeplaceholderindex = null, subnodetitle = null, subnodetitleindex = null;
             for (var j in subnode.attributes) {
+                if ((subnode.attributes[j].name == 'notrans') && (subnode.attributes[j].value == '1')) { subnodeignore = true; }
                 if ((subnode.attributes[j].name == 'type') && (subnode.attributes[j].value == 'hidden')) { subnodeignore = true; }
                 if (subnode.attributes[j].name == 'value') { subnodevalue = subnode.attributes[j].value; subnodeindex = j; }
                 if (subnode.attributes[j].name == 'placeholder') { subnodeplaceholder = subnode.attributes[j].value; subnodeplaceholderindex = j; }
@@ -688,27 +849,29 @@ function translateStrings(name, node) {
             }
         }
 
-        var subname = subnode.id;
-        if (subname == null || subname == '') { subname = i; }
-        if (subnode.hasChildNodes()) {
-            translateStrings(name + '->' + subname, subnode);
-        } else {
-            if (subnode.nodeValue == null) continue;
-            var nodeValue = subnode.nodeValue.trim().split('\\r').join('').split('\\n').join('').trim();
+        if (subnodeignore == false) {
+            var subname = subnode.id;
+            if (subname == null || subname == '') { subname = i; }
+            if (subnode.hasChildNodes()) {
+                translateStrings(name + '->' + subname, subnode);
+            } else {
+                if (subnode.nodeValue == null) continue;
+                var nodeValue = subnode.nodeValue.trim().split('\\r').join('').split('\\n').join('').trim();
 
-            // Look for the front trim
-            var frontTrim = '', backTrim = '';;
-            var x1 = subnode.nodeValue.indexOf(nodeValue);
-            if (x1 > 0) { frontTrim = subnode.nodeValue.substring(0, x1); }
-            if (x1 != -1) { backTrim = subnode.nodeValue.substring(x1 + nodeValue.length); }
+                // Look for the front trim
+                var frontTrim = '', backTrim = '';;
+                var x1 = subnode.nodeValue.indexOf(nodeValue);
+                if (x1 > 0) { frontTrim = subnode.nodeValue.substring(0, x1); }
+                if (x1 != -1) { backTrim = subnode.nodeValue.substring(x1 + nodeValue.length); }
 
-            if ((nodeValue.length > 0) && (subnode.nodeType == 3)) {
-                if ((node.tagName != 'SCRIPT') && (node.tagName != 'STYLE') && (nodeValue.length < 8000) && (nodeValue.startsWith('{{{') == false) && (nodeValue != ' ')) {
-                    // Check if we have a translation for this string
-                    if (translationTable[nodeValue]) { subnode.nodeValue = (frontTrim + translationTable[nodeValue] + backTrim); }
-                } else if (node.tagName == 'SCRIPT') {
-                    // Translate JavaScript
-                    subnode.nodeValue = translateStringsFromJavaScript(name, subnode.nodeValue);
+                if ((nodeValue.length > 0) && (subnode.nodeType == 3)) {
+                    if ((node.tagName != 'SCRIPT') && (node.tagName != 'STYLE') && (nodeValue.length < 8000) && (nodeValue.startsWith('{{{') == false) && (nodeValue != ' ')) {
+                        // Check if we have a translation for this string
+                        if (translationTable[nodeValue]) { subnode.nodeValue = (frontTrim + translationTable[nodeValue] + backTrim); }
+                    } else if (node.tagName == 'SCRIPT') {
+                        // Translate JavaScript
+                        subnode.nodeValue = translateStringsFromJavaScript(name, subnode.nodeValue);
+                    }
                 }
             }
         }
@@ -787,7 +950,7 @@ function translationsToJson(t) {
     for (var i in arr) {
         var names = [], el = arr[i], el2 = {};
         for (var j in el) { names.push(j); }
-        names.sort();
+        names.sort(function (a, b) { if (a == b) { return 0; } if (a == 'xloc') { return 1; } if (b == 'xloc') { return -1; } return a - b });
         for (var j in names) { el2[names[j]] = el[names[j]]; }
         if (el2.xloc != null) { el2.xloc.sort(); }
         arr2.push(el2);

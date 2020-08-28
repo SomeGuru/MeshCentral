@@ -12,10 +12,10 @@
 /*jshint node: true */
 /*jshint strict: false */
 /*jshint esversion: 6 */
-"use strict";
+'use strict';
 
-const fs = require("fs");
-const crypto = require("crypto");
+const fs = require('fs');
+const crypto = require('crypto');
 
 // Binary encoding and decoding functions
 module.exports.ReadShort = function (v, p) { return (v.charCodeAt(p) << 8) + v.charCodeAt(p + 1); };
@@ -40,7 +40,7 @@ module.exports.format = function (format) { var args = Array.prototype.slice.cal
 
 // Print object for HTML
 module.exports.ObjectToStringEx = function (x, c) {
-    var r = "", i;
+    var r = '', i;
     if (x != 0 && (!x || x == null)) return "(Null)";
     if (x instanceof Array) { for (i in x) { r += '<br />' + gap(c) + "Item #" + i + ": " + module.exports.ObjectToStringEx(x[i], c + 1); } }
     else if (x instanceof Object) { for (i in x) { r += '<br />' + gap(c) + i + " = " + module.exports.ObjectToStringEx(x[i], c + 1); } }
@@ -50,7 +50,7 @@ module.exports.ObjectToStringEx = function (x, c) {
 
 // Print object for console
 module.exports.ObjectToStringEx2 = function (x, c) {
-    var r = "", i;
+    var r = '', i;
     if (x != 0 && (!x || x == null)) return "(Null)";
     if (x instanceof Array) { for (i in x) { r += '\r\n' + gap2(c) + "Item #" + i + ": " + module.exports.ObjectToStringEx2(x[i], c + 1); } }
     else if (x instanceof Object) { for (i in x) { r += '\r\n' + gap2(c) + i + " = " + module.exports.ObjectToStringEx2(x[i], c + 1); } }
@@ -130,7 +130,7 @@ module.exports.ComputeDigesthash = function (username, password, realm, method, 
 module.exports.toNumber = function (str) { var x = parseInt(str); if (x == str) return x; return str; };
 module.exports.escapeHtml = function (string) { return String(string).replace(/[&<>"'`=\/]/g, function (s) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' }[s]; }); };
 module.exports.escapeHtmlBreaks = function (string) { return String(string).replace(/[&<>"'`=\/]/g, function (s) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;', '\r': '<br />', '\n': '' }[s]; }); };
-module.exports.zeroPad = function(num, c) { if (c == null) { c = 2; } var s = "000000" + num; return s.substr(s.length - c); }
+module.exports.zeroPad = function(num, c) { if (c == null) { c = 2; } var s = '000000' + num; return s.substr(s.length - c); }
 
 // Lowercase all the names in a object recursively
 // Allow for exception keys, child of exceptions will not get lower-cased.
@@ -147,6 +147,7 @@ module.exports.escapeFieldName = function (name) { if ((name.indexOf('%') == -1)
 module.exports.unEscapeFieldName = function (name) { if (name.indexOf('%') == -1) return name; return name.split('%2E').join('.').split('%24').join('$').split('%25').join('%'); };
 
 // Escape all links
+module.exports.escapeLinksFieldNameEx = function (docx) { if (docx.links == null) { return docx; } var doc = Object.assign({}, docx); doc.links = Object.assign({}, doc.links); for (var i in doc.links) { var ue = module.exports.escapeFieldName(i); if (ue !== i) { doc.links[ue] = doc.links[i]; delete doc.links[i]; } } return doc; };
 module.exports.escapeLinksFieldName = function (docx) { var doc = Object.assign({}, docx); if (doc.links != null) { doc.links = Object.assign({}, doc.links); for (var i in doc.links) { var ue = module.exports.escapeFieldName(i); if (ue !== i) { doc.links[ue] = doc.links[i]; delete doc.links[i]; } } } return doc; };
 module.exports.unEscapeLinksFieldName = function (doc) { if (doc.links != null) { for (var j in doc.links) { var ue = module.exports.unEscapeFieldName(j); if (ue !== j) { doc.links[ue] = doc.links[j]; delete doc.links[j]; } } } return doc; };
 //module.exports.escapeAllLinksFieldName = function (docs) { for (var i in docs) { module.exports.escapeLinksFieldName(docs[i]); } return docs; };
@@ -156,24 +157,26 @@ module.exports.unEscapeAllLinksFieldName = function (docs) { for (var i in docs)
 module.exports.validateString = function (str, minlen, maxlen) { return ((str != null) && (typeof str == 'string') && ((minlen == null) || (str.length >= minlen)) && ((maxlen == null) || (str.length <= maxlen))); };
 module.exports.validateInt = function (int, minval, maxval) { return ((int != null) && (typeof int == 'number') && ((minval == null) || (int >= minval)) && ((maxval == null) || (int <= maxval))); };
 module.exports.validateArray = function (array, minlen, maxlen) { return ((array != null) && Array.isArray(array) && ((minlen == null) || (array.length >= minlen)) && ((maxlen == null) || (array.length <= maxlen))); };
-module.exports.validateStrArray = function (array, minlen, maxlen) { if (((array != null) && Array.isArray(array)) == false) return false; for (var i in array) { if ((typeof array[i] != 'string') && ((minlen == null) || (array[i].length >= minlen)) && ((maxlen == null) || (array[i].length <= maxlen))) return false; } return true; };
+module.exports.validateStrArray = function (array, minlen, maxlen) { if (((array != null) && Array.isArray(array)) == false) return false; for (var i in array) { if ( (typeof array[i] != 'string') || ((minlen != null) && (array[i].length < minlen)) || ((maxlen != null) && (array[i].length > maxlen))) return false; } return true; };
 module.exports.validateObject = function (obj) { return ((obj != null) && (typeof obj == 'object')); };
 module.exports.validateEmail = function (email, minlen, maxlen) { if (module.exports.validateString(email, minlen, maxlen) == false) return false; var emailReg = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; return emailReg.test(email); };
 module.exports.validateUsername = function (username, minlen, maxlen) { return (module.exports.validateString(username, minlen, maxlen) && (username.indexOf(' ') == -1) && (username.indexOf('"') == -1) && (username.indexOf(',') == -1)); };
+module.exports.isAlphaNumeric = function (str) { return (str.match(/^[A-Za-z0-9]+$/) != null); };
+module.exports.validateAlphaNumericArray = function (array, minlen, maxlen) { if (((array != null) && Array.isArray(array)) == false) return false; for (var i in array) { if ((typeof array[i] != 'string') || (module.exports.isAlphaNumeric(array[i]) == false) || ((minlen != null) && (array[i].length < minlen)) || ((maxlen != null) && (array[i].length > maxlen)) ) return false; } return true; };
 
 // Check password requirements
 module.exports.checkPasswordRequirements = function(password, requirements) {
     if ((requirements == null) || (requirements == '') || (typeof requirements != 'object')) return true;
     if (requirements.min) { if (password.length < requirements.min) return false; }
     if (requirements.max) { if (password.length > requirements.max) return false; }
-    var num = 0, lower = 0, upper = 0, nonalpha = 0;
+    var numeric = 0, lower = 0, upper = 0, nonalpha = 0;
     for (var i = 0; i < password.length; i++) {
-        if (/\d/.test(password[i])) { num++; }
+        if (/\d/.test(password[i])) { numeric++; }
         if (/[a-z]/.test(password[i])) { lower++; }
         if (/[A-Z]/.test(password[i])) { upper++; }
         if (/\W/.test(password[i])) { nonalpha++; }
     }
-    if (requirements.num && (num < requirements.num)) return false;
+    if (requirements.numeric && (numeric < requirements.numeric)) return false;
     if (requirements.lower && (lower < requirements.lower)) return false;
     if (requirements.upper && (upper < requirements.upper)) return false;
     if (requirements.nonalpha && (nonalpha < requirements.nonalpha)) return false;
@@ -251,7 +254,7 @@ module.exports.translationsToJson = function(t) {
     for (var i in arr) {
         var names = [], el = arr[i], el2 = {};
         for (var j in el) { names.push(j); }
-        names.sort();
+        names.sort(function (a, b) { if (a == b) { return 0; } if (a == 'xloc') { return 1; } if (b == 'xloc') { return -1; } return a - b });
         for (var j in names) { el2[names[j]] = el[names[j]]; }
         if (el2.xloc != null) { el2.xloc.sort(); }
         arr2.push(el2);
@@ -268,4 +271,26 @@ module.exports.copyFile = function(source, target, cb) {
     wr.on('close', function (ex) { done(); });
     rd.pipe(wr);
     function done(err) { if (!cbCalled) { cb(err); cbCalled = true; } }
+}
+
+module.exports.meshServerRightsArrayToNumber = function (val) {
+    if (val == null) return null;
+    if (typeof val == 'number') return val;
+    if (Array.isArray(val)) {
+        var newAccRights = 0;
+        for (var j in val) {
+            var r = val[j].toLowerCase();
+            if (r == 'fulladmin') { newAccRights = 4294967295; } // 0xFFFFFFFF
+            if (r == 'serverbackup') { newAccRights |= 1; }
+            if (r == 'manageusers') { newAccRights |= 2; }
+            if (r == 'serverrestore') { newAccRights |= 4; }
+            if (r == 'fileaccess') { newAccRights |= 8; }
+            if (r == 'serverupdate') { newAccRights |= 16; }
+            if (r == 'locked') { newAccRights |= 32; }
+            if (r == 'nonewgroups') { newAccRights |= 64; }
+            if (r == 'notools') { newAccRights |= 128; }
+        }
+        return newAccRights;
+    }
+    return null;
 }

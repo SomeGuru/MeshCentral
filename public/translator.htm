@@ -61,6 +61,7 @@
                     <input id="SaveFileButton" type=button value="Save to File..." onclick="saveToFile()">
                     <select id="langSelector" onchange="langSelectorChange()">
                         <option value="ar">Arabic (ar)</option>
+                        <option value="fi">Finnish (fi)</option>
                         <option value="fr">French (fr)</option>
                         <option value="cs">Czech (cs)</option>
                         <option value="de">German (de)</option>
@@ -78,6 +79,7 @@
                         <option value="zh-CHS">Simplified Chinese (zh-CHS)</option>
                         <option value="zh-CHT">Traditional Chinese (zh-CHT)</option>
                         <option value="es">Spanish (es)</option>
+                        <option value="tr">Turkish (tr)</option>
                     </select> 
                     <input id="searchInput" type="text" placeholder="Search" onchange="onSearchChanged()" onkeyup="onSearchChanged()">
                     <label><input id="showLocCheck" type="checkbox" onchange="onLocChanged()"> Show Location</label>
@@ -88,7 +90,7 @@
                 <div class="areaProgress"><div id="progressbar" style="background-color:blue"></div></div>
             </div>
             <div id=deskarea3x style="max-height:calc(100vh - 82px);height:calc(100vh - 54px);background-color:gray">
-                <div id="masterListArea" style="height:calc(33.33vh);overflow-y:scroll">
+                <div id="mainListArea" style="height:calc(33.33vh);overflow-y:scroll">
                     <div class="listItem"><div style="display:inline-block;width:calc(40% - 10px)"></div><div style="display:inline-block;width:calc(40% - 10px)"></div><div style="display:inline-block;width:calc(20% - 10px)"></div></div>
                 </div>
                 <textarea id="defaultTextArea" autocomplete=off readonly style="height:calc(28.33vh);overflow-y:scroll;width:calc(100% - 5px);resize:none;background-color:#EFE"></textarea>
@@ -139,7 +141,7 @@
             document.ondragover = ondragover;
             document.ondragleave = ondragleave;
             document.onkeypress = onkeypress;
-            updateMasterList();
+            updateMainList();
             loadServerTranslations();
             QE('SaveServerButton', false);
         }
@@ -152,14 +154,14 @@
 
         function langSelectorChange() {
             selectedLanguage = Q('langSelector').value;
-            updateMasterList();
+            updateMainList();
             onSearchChanged(true);
             select(0, true, false);
         }
 
         function cleanup() {
             translationFile = null;
-            updateMasterList();
+            updateMainList();
             Q('searchInput').value = '';
             currentSearchFilter = '';
         }
@@ -236,14 +238,14 @@
                     translations.sort(enSort);
                     Q('searchInput').value = '';
                     currentSearchFilter = '';
-                    updateMasterList();
+                    updateMainList();
                     select(0, true);
                 }
             };
             fr.readAsText(translationFile);
         }
 
-        function updateMasterList() {
+        function updateMainList() {
             var x = [];
             if (translations != null) {
                 //console.log(translations);
@@ -256,7 +258,7 @@
                     x.push('<div class="listItem" id=nx' + i + ' onclick=select(' + i + ')><div id=ns' + i + ' style="display:inline-block;width:calc(40% - 10px)">' + source + '</div><div id=nt' + i + ' style="display:inline-block;width:calc(40% - 10px)">' + target + '</div><div id=nc' + i + ' style="display:inline-block;width:calc(20% - 10px)">' + comment + '</div></div>');
                 }
             }
-            QH('masterListArea', x.join(''));
+            QH('mainListArea', x.join(''));
             updateButtons();
             onSearchChanged(true);
         }
@@ -271,9 +273,9 @@
             Q('nx' + selectedItem).classList.remove('listItem');
             Q('nx' + selectedItem).classList.add('listItemSel');
             if (scroll === true) {
-                var x = (Q('masterListArea').clientHeight / 2) - (Q('nx' + selectedItem).clientHeight / 2);
+                var x = (Q('mainListArea').clientHeight / 2) - (Q('nx' + selectedItem).clientHeight / 2);
                 if (x < 0) { x = 0; }
-                Q('masterListArea').scrollTop = Q('nx' + selectedItem).offsetTop - x;
+                Q('mainListArea').scrollTop = Q('nx' + selectedItem).offsetTop - x;
             }
             onLocChanged();
             if (translations[i][selectedLanguage] != null) {
@@ -355,7 +357,7 @@
                 translations.sort(enSort);
                 Q('searchInput').value = '';
                 currentSearchFilter = '';
-                updateMasterList();
+                updateMainList();
                 select(0, true);
             };
             xdr.onerror = function () {

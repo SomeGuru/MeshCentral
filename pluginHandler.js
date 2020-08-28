@@ -27,6 +27,7 @@ module.exports.pluginHandler = function (parent) {
 
     obj.fs = require('fs');
     obj.path = require('path');
+    obj.common = require('./common.js');
     obj.parent = parent;
     obj.pluginPath = obj.parent.path.join(obj.parent.datapath, 'plugins');
     obj.plugins = {};
@@ -123,14 +124,14 @@ module.exports.pluginHandler = function (parent) {
             st.src = '/pluginHandler.js';
             document.body.appendChild(st);
         };
-        return obj; };`;
+        return obj; }`;
         return str;
     }
 
     obj.refreshJS = function (req, res) {
         // to minimize server reboots when installing new plugins, we call the new data and overwrite the old pluginHandler on the front end
         res.set('Content-Type', 'text/javascript');
-        res.send('pluginHandlerBuilder = ' + obj.prepExports() + ' pluginHandler = new pluginHandlerBuilder(); pluginHandler.callHook("onWebUIStartupEnd");');
+        res.send('pluginHandlerBuilder = ' + obj.prepExports() + '\r\n' + ' pluginHandler = new pluginHandlerBuilder(); pluginHandler.callHook("onWebUIStartupEnd");');
     }
 
     obj.callHook = function (hookName, ...args) {
@@ -274,6 +275,18 @@ module.exports.pluginHandler = function (parent) {
         })
     };
 
+    // MeshCentral now adheres to semver, drop the -<alpha> off the version number for later versions for comparing plugins prior to this change
+    obj.versionToNumber = function(ver) { var x = ver.split('-'); if (x.length != 2) return ver; return x[0]; }
+
+    // Check if the current version of MeshCentral is at least the minimal required.
+    obj.versionCompare = function(current, minimal) {
+        if (minimal.startsWith('>=')) { minimal = minimal.substring(2); }
+        var c = obj.versionToNumber(current).split('.'), m = obj.versionToNumber(minimal).split('.');
+        if (c.length != m.length) return false;
+        for (var i = 0; i < c.length; i++) { var cx = parseInt(c[i]), cm = parseInt(m[i]); if (cx > cm) { return true; } if (cx < cm) { return false; } }
+        return true;
+    }
+
     obj.getPluginLatest = function () {
         return new Promise(function (resolve, reject) {
             parent.db.getPlugins(function (err, plugins) {
@@ -294,16 +307,12 @@ module.exports.pluginHandler = function (parent) {
                             });
                             if (curconf == null) reject("Some plugin configs could not be parsed");
                             var s = require('semver');
-                            // MeshCentral doesn't adhere to semantic versioning (due to the -<alpha_char> at the end of the version)
-                            // Convert the letter to ASCII for a "true" version number comparison
-                            var mcCurVer = parent.currentVer.replace(/-(.)$/, (m, p1) => { return ("000" + p1.charCodeAt(0)).substr(-3,3); });
-                            var piCompatVer = newconf.meshCentralCompat.replace(/-(.)\b/g, (m, p1) => { return ("000" + p1.charCodeAt(0)).substr(-3,3); });
                             latestRet.push({
                                 'id': curconf._id,
                                 'installedVersion': curconf.version,
                                 'version': newconf.version,
                                 'hasUpdate': s.gt(newconf.version, curconf.version),
-                                'meshCentralCompat': s.satisfies(mcCurVer, piCompatVer),
+                                'meshCentralCompat': obj.versionCompare(parent.currentVer, newconf.meshCentralCompat),
                                 'changelogUrl': curconf.changelogUrl,
                                 'status': curconf.status
                             });
@@ -377,7 +386,7 @@ module.exports.pluginHandler = function (parent) {
                     response.pipe(file);
                     file.on('finish', function () {
                         file.close(function () {
-                            var yauzl = require("yauzl");
+                            var yauzl = require('yauzl');
                             if (!obj.fs.existsSync(obj.pluginPath)) {
                                 obj.fs.mkdirSync(obj.pluginPath);
                             }
@@ -463,7 +472,7 @@ module.exports.pluginHandler = function (parent) {
                         versStr += chunk;
                     });
                     res.on('end', function () {
-                        if (versStr[0] == '{' || versStr[0] == '[') { // let's be sure we're JSON
+                        if ((versStr[0] == '{') || (versStr[0] == '[')) { // let's be sure we're JSON
                             try {
                                 var vers = JSON.parse(versStr);
                                 var vList = [];
@@ -507,9 +516,10 @@ module.exports.pluginHandler = function (parent) {
     };
 
     obj.handleAdminReq = function (req, res, user, serv) {
+        if ((req.query.pin == null) || (obj.common.isAlphaNumeric(req.query.pin) !== true)) { res.sendStatus(401); return; }
         var path = obj.path.join(obj.pluginPath, req.query.pin, 'views');
         serv.app.set('views', path);
-        if (obj.plugins[req.query.pin] != null && typeof obj.plugins[req.query.pin].handleAdminReq == 'function') {
+        if ((obj.plugins[req.query.pin] != null) && (typeof obj.plugins[req.query.pin].handleAdminReq == 'function')) {
             obj.plugins[req.query.pin].handleAdminReq(req, res, user);
         } else {
             res.sendStatus(401);
@@ -517,9 +527,10 @@ module.exports.pluginHandler = function (parent) {
     }
 
     obj.handleAdminPostReq = function (req, res, user, serv) {
+        if ((req.query.pin == null) || (obj.common.isAlphaNumeric(req.query.pin) !== true)) { res.sendStatus(401); return; }
         var path = obj.path.join(obj.pluginPath, req.query.pin, 'views');
         serv.app.set('views', path);
-        if (obj.plugins[req.query.pin] != null && typeof obj.plugins[req.query.pin].handleAdminPostReq == 'function') {
+        if ((obj.plugins[req.query.pin] != null) && (typeof obj.plugins[req.query.pin].handleAdminPostReq == 'function')) {
             obj.plugins[req.query.pin].handleAdminPostReq(req, res, user);
         } else {
             res.sendStatus(401);

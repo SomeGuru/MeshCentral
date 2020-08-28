@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html>
+<html lang="en">
 <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
@@ -7,7 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
     <link type="text/css" href="styles/style.css" media="screen" rel="stylesheet" title="CSS" />
-    <script type="text/javascript" src="scripts/common-0.0.1.js"></script>
+    <link rel="apple-touch-icon" href="/favicon-303x303.png" />
+    <script type="text/javascript" src="scripts/common-0.0.1{{min}}.js"></script>
     <title>Agent Installation</title>
     <style>
         .tab {
@@ -73,9 +74,7 @@
         <div id="column_l" style="max-height:calc(100vh - 135px);overflow-y:auto">
             <h1><span id="groupname">Remote Agent Installation</span></h1>
             <p>
-                You have been invited to install a software that will allow a remote operator to fully access your computer remotely including the desktop and files.
-                Only follow the instructions below if this invitation was expected and you know who will be accessing your computer.
-                Selecting your operation system and follow the instructions below.
+                You have been invited to install an application that will allow a remote operator to securely access your computer including the desktop and files. Only follow the instructions below if this invitation was expected and you know who will be accessing your computer. Select your operating system and follow the instructions below for installation.
             </p>
             <div>
                 <div class="tab">
@@ -146,7 +145,7 @@
         var installFlags = '{{{installflags}}}';
         var groupName = decodeURIComponent('{{{meshname}}}');
         if (groupName != '') {
-            QH('groupname', format("Remote Agent Installation for {0}", groupName));
+            QH('groupname', format("Remote Agent Installation for {0}", escapeHtml(groupName)));
             document.title = format("{0} - Agent Installation", groupName);
         } else {
             document.title = "Agent Installation";
@@ -262,7 +261,7 @@
 
             // Linux Setup
             if (serverHttps == 1) {
-                var portStr = (serverPort == 443) ? '' : (":" + serverPort);
+                var portStr = (serverPort == 443) ? '' : (':' + serverPort);
                 if (serverNoProxy == 0) {
                     linuxInstall = '(wget "https://' + servername + portStr + domainUrl + 'meshagents?script=1" --no-check-certificate -O ./meshinstall.sh || wget "https://' + servername + portStr + domainUrl + 'meshagents?script=1" --no-proxy --no-check-certificate -O ./meshinstall.sh) && chmod 755 ./meshinstall.sh && sudo ./meshinstall.sh https://' + servername + portStr + domainUrlNoSlash + ' \'' + meshid + '\'\r\n';
                     linuxUnInstall = '(wget "https://' + servername + portStr + domainUrl + 'meshagents?script=1" --no-check-certificate -O ./meshinstall.sh || wget "https://' + servername + portStr + domainUrl + 'meshagents?script=1" --no-proxy --no-check-certificate -O ./meshinstall.sh) && chmod 755 ./meshinstall.sh && sudo ./meshinstall.sh uninstall\r\n';
@@ -297,7 +296,8 @@
         function copyToClipLinuxUnInstall() { copyTextToClip(linuxUnInstall); }
         function copyTextToClip(txt) { function selectElementText(e) { if (document.selection) { var range = document.body.createTextRange(); range.moveToElementText(e); range.select(); } else if (window.getSelection) { var range = document.createRange(); range.selectNode(e); window.getSelection().removeAllRanges(); window.getSelection().addRange(range); } } var e = document.createElement('DIV'); e.textContent = txt; document.body.appendChild(e); selectElementText(e); document.execCommand('copy'); e.remove(); }
         function format(format) { var args = Array.prototype.slice.call(arguments, 1); return format.replace(/{(\d+)}/g, function (match, number) { return typeof args[number] != 'undefined' ? args[number] : match; }); };
-
+        function escapeHtml(string) { return String(string).replace(/[&<>"'`=\/]/g, function (s) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;' }[s]; }); };
+        function escapeHtmlBreaks(string) { return String(string).replace(/[&<>"'`=\/]/g, function (s) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;', '\r': '<br />', '\n': '' }[s]; }); };
     </script>
 </body>
 </html>

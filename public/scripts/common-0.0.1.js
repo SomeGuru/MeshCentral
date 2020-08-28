@@ -108,3 +108,27 @@ function trademarks(x) { return x.replace(/\(R\)/g, '&reg;').replace(/\(TM\)/g, 
 
 // Pad a number with zeros on the left
 function zeroPad(num, c) { if (c == null) { c = 2; } var s = "00000000" + num; return s.substr(s.length - c); }
+
+// String validation
+function isAlphaNumeric(str) { return (str.match(/^[A-Za-z0-9]+$/) != null); };
+function isSafeString(str) { return ((typeof str == 'string') && (str.indexOf('<') == -1) && (str.indexOf('>') == -1) && (str.indexOf('&') == -1) && (str.indexOf('"') == -1) && (str.indexOf('\'') == -1) && (str.indexOf('+') == -1) && (str.indexOf('(') == -1) && (str.indexOf(')') == -1) && (str.indexOf('#') == -1) && (str.indexOf('%') == -1) && (str.indexOf(':') == -1)) };
+function isSafeString2(str) { return ((typeof str == 'string') && (str.indexOf('<') == -1) && (str.indexOf('>') == -1) && (str.indexOf('&') == -1) && (str.indexOf('"') == -1) && (str.indexOf('\'') == -1) && (str.indexOf('+') == -1) && (str.indexOf('(') == -1) && (str.indexOf(')') == -1) && (str.indexOf('#') == -1) && (str.indexOf('%') == -1)) };
+
+// Parse URL arguments, only keep safe values
+function parseUriArgs() {
+    var href = window.document.location.href;
+    if (href.endsWith('#')) { href = href.substring(0, href.length - 1); }
+    var name, r = {}, parsedUri = href.split(/[\?&|\=]/);
+    parsedUri.splice(0, 1);
+    for (x in parsedUri) {
+        switch (x % 2) {
+            case 0: { name = decodeURIComponent(parsedUri[x]); break; }
+            case 1: {
+                r[name] = decodeURIComponent(parsedUri[x]);
+                if (!isSafeString2(r[name])) { delete r[name]; } else { var x = parseInt(r[name]); if (x == r[name]) { r[name] = x; } }
+                break;
+            } default: { break; }
+        }
+    }
+    return r;
+}

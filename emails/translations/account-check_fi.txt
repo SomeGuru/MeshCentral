@@ -1,0 +1,6 @@
+[[[SERVERNAME]]] - Sähköpostivarmistus
+Hei [[[USERNAME]]], [[[SERVERNAME]]] ([[[SERVERURL]]]) tarkistaa sähköpostiosoitetta. Seuraa linkkiä prosessin loppuun saattamiseksi:
+~
+~[[[SERVERURL]]]/checkmail?c=[[[COOKIE]]]
+~
+Jos et suorittanut tätä pyyntöä, voit ohitaa tämän sähköpostin.

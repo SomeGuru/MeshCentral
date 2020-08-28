@@ -71,11 +71,9 @@ module.exports.CreateAmtScanner = function (parent) {
         rangeinfo.server = obj.dgram.createSocket("udp4");
         rangeinfo.server.bind(0);
         rangeinfo.server.on('error', (err) => { console.log(err); });
-        rangeinfo.server.on('message', (data, rinfo) => { obj.parseRmcpPacket(data, rinfo, 0, obj.reportMachineState, rangeinfo); });
-        rangeinfo.server.on('listening', () => {
-            for (var i = rangeinfo.min; i <= rangeinfo.max; i++) { rangeinfo.server.send(obj.rpacket, 623, obj.IPv4NumToStr(i)); }
-        });
-        rangeinfo.timer = setTimeout(function () { // ************************* USER OF OUTER VARS!!!!!!!!!!!!!!!
+        rangeinfo.server.on('message', function (data, rinfo) { obj.parseRmcpPacket(data, rinfo, 0, obj.reportMachineState, rangeinfo); });
+        rangeinfo.server.on('listening', function() { for (var i = rangeinfo.min; i <= rangeinfo.max; i++) { rangeinfo.server.send(obj.rpacket, 623, obj.IPv4NumToStr(i)); } });
+        rangeinfo.timer = setTimeout(function () { // ************************* USE OF OUTER VARS!!!!!!!!!!!!!!!
             obj.parent.DispatchEvent(['*', userid], obj, { action: 'scanamtdevice', range: rangeinfo.range, results: rangeinfo.results, nolog: 1 });
             rangeinfo.server.close();
             delete rangeinfo.server;
@@ -296,11 +294,11 @@ module.exports.CreateAmtScanner = function (parent) {
         //var provisioningStates = { 0: 'Pre', 1: 'in', 2: 'Post' };
         //var provisioningStateStr = provisioningStates[provisioningState];
         //console.log(rinfo.address + ': Intel AMT ' + majorVersion + '.' + minorVersion + ', ' + provisioningStateStr + '-Provisioning, Open Ports: [' + openPorts.join(', ') + ']');
-        obj.dns.reverse(rinfo.address, function (err, hostname) {
-            if ((err != undefined) && (hostname != undefined)) {
-                user.results[rinfo.address] = { ver: majorVersion + '.' + minorVersion, tls: (((openPort == 16993) || (dualPorts == true)) ? 1 : 0), state: provisioningState, hostname: hostname[0] };
+        obj.dns.reverse(rinfo.address, function (err, hostnames) {
+            if ((err == null) && (hostnames != null) && (hostnames.length > 0)) {
+                user.results[rinfo.address] = { ver: majorVersion + '.' + minorVersion, tls: (((openPort == 16993) || (dualPorts == true)) ? 1 : 0), state: provisioningState, hostname: hostnames[0], hosttype: 'host' };
             } else {
-                user.results[rinfo.address] = { ver: majorVersion + '.' + minorVersion, tls: (((openPort == 16993) || (dualPorts == true)) ? 1 : 0), state: provisioningState, hostname: rinfo.address };
+                user.results[rinfo.address] = { ver: majorVersion + '.' + minorVersion, tls: (((openPort == 16993) || (dualPorts == true)) ? 1 : 0), state: provisioningState, hostname: rinfo.address, hosttype: 'addr' };
             }
         });
     };
@@ -371,7 +369,9 @@ module.exports.CreateAmtScanner = function (parent) {
             } else {
                 // Connect using TLS, we will switch from default TLS to TLS1-only and back if we get a connection error to support older Intel AMT.
                 if (scaninfo.tlsoption == null) { scaninfo.tlsoption = 0; }
-                client = obj.tls.connect(port, host, scaninfo.tlsoption == 1 ? { secureProtocol: 'TLSv1_method', rejectUnauthorized: false, ciphers: 'RSA+AES:!aNULL:!MD5:!DSS', secureOptions: constants.SSL_OP_NO_SSLv2 | constants.SSL_OP_NO_SSLv3 | constants.SSL_OP_NO_COMPRESSION | constants.SSL_OP_CIPHER_SERVER_PREFERENCE } : { rejectUnauthorized: false, ciphers: 'RSA+AES:!aNULL:!MD5:!DSS', secureOptions: constants.SSL_OP_NO_SSLv2 | constants.SSL_OP_NO_SSLv3 | constants.SSL_OP_NO_COMPRESSION | constants.SSL_OP_CIPHER_SERVER_PREFERENCE }, function () { this.write('GET / HTTP/1.1\r\nhost: ' + host + '\r\n\r\n'); });
+                const tlsOptions = { rejectUnauthorized: false, ciphers: 'RSA+AES:!aNULL:!MD5:!DSS', secureOptions: constants.SSL_OP_NO_SSLv2 | constants.SSL_OP_NO_SSLv3 | constants.SSL_OP_NO_COMPRESSION | constants.SSL_OP_CIPHER_SERVER_PREFERENCE };
+                if (scaninfo.tlsoption == 1) { tlsOptions.secureProtocol = 'TLSv1_method'; }
+                client = obj.tls.connect(port, host, tlsOptions, function () { this.write('GET / HTTP/1.1\r\nhost: ' + host + '\r\n\r\n'); });
             }
             client.scaninfo = scaninfo;
             client.func = func;

@@ -1,14 +1,23 @@
 ﻿<!DOCTYPE html>
 <html dir="ltr" xmlns="http://www.w3.org/1999/xhtml">
-<head>
+<head lang="en">
+    <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
     <meta name="viewport" content="user-scalable=1.0,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
-    <link rel="shortcut icon" type="image/x-icon" href="{{{domainurl}}}favicon.ico" />
-    <script type="text/javascript" src="scripts/common-0.0.1.js"></script>
-    <script type="text/javascript" src="scripts/u2f-api.js"></script>
+    <link rel="manifest" href="{{{domainurl}}}manifest.json">
+    <link rel="shortcut icon" href="{{{domainurl}}}favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="{{{domainurl}}}favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{{domainurl}}}favicon-32x32.png">
+    <link rel="apple-touch-icon" href="/favicon-303x303.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#ffffff">
+    <meta name="apple-mobile-web-app-title" content="{{{title}}}">
+    <script type="text/javascript" src="scripts/common-0.0.1{{min}}.js"></script>
+    <script type="text/javascript" src="scripts/u2f-api{{min}}.js"></script>
+    <meta name="msapplication-TileColor" content="#00aba9">
+    <meta name="theme-color" content="#ffffff">
     <title>{{{title}}} - Login</title>
     <style>
         a {
@@ -72,6 +81,18 @@
                                         Don&#39;t have an account? <a onclick=xgo(2) style=cursor:pointer>Create one</a>.
                                     </div>
                                     <input id=loginformargs name="urlargs" type="hidden" value="" />
+                                    <div id="authStrategies" style="display:none">
+                                        <hr />
+                                        <div style="margin-bottom:8px">Log in using an existing account</div>
+                                        <a id="auth-twitter" href="auth-twitter" style="display:none"><img src="images/login/twitter32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Twitter" /></a>
+                                        <a id="auth-google" href="auth-google" style="display:none"><img src="images/login/google32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Google" /></a>
+                                        <a id="auth-github" href="auth-github" style="display:none"><img src="images/login/github32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using GitHub" /></a>
+                                        <a id="auth-reddit" href="auth-reddit" style="display:none"><img src="images/login/reddit32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Reddit" /></a>
+                                        <a id="auth-azure" href="auth-azure" style="display:none"><img src="images/login/azure32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Azure" /></a>
+                                        <a id="auth-jumpcloud" href="auth-jumpcloud" style="display:none"><img src="images/login/jumpcloud32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using JumpCloud" /></a>
+                                        <a id="auth-intel" href="auth-intel" style="display:none"><img src="images/login/intel32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Sign-in using Intel" /></a>
+                                        <a id="auth-saml" href="auth-saml" style="display:none"><img src="images/login/generic32.png" loading="lazy" width="32" height="32" style="margin-left:3px;margin-right:3px;border-radius:3px;box-shadow:2px 2px 5px black;cursor:pointer" title="Single Sign-in" /></a>
+                                    </div>
                                 </form>
                             </div>
                             <div id=createpanel style="display:none">
@@ -158,13 +179,17 @@
                                         </tr>
                                         <tr>
                                             <td colspan="2" style="align-content:center">
-                                                <label><input id=tokenInputRemember name=remembertoken type=checkbox />Remember this device for 30 days.</label>
+                                                <label id=tokenInputRememberLabel><input id=tokenInputRemember name=remembertoken type=checkbox /><span id=tokenInputRememberSpan></span></label>
                                             </td>
                                         </tr>
                                         <tr>
                                             <td colspan=2>
                                                 <div style=float:right><input id=tokenOkButton type=submit value="Login" disabled="disabled" /></div>
-                                                <div style=float:right><input style="display:none;float:right" id=securityKeyButton type=button value="Use Security Key" onclick="useSecurityKey()" /></div>
+                                                <div style=float:right>
+                                                    <input style="display:none;float:right" id=securityKeyButton type=button value="Use Security Key" onclick="useSecurityKey()" />
+                                                    <input style="display:none;float:right" id=emailKeyButton type=button value="Email" onclick="useEmailToken()" />
+                                                    <input style="display:none;float:right" id=smsKeyButton type=button value="SMS" onclick="useSMSToken()" />
+                                                </div>
                                             </td>
                                         </tr>
                                     </table>
@@ -223,6 +248,31 @@
                                     <input id=resetpasswordformargs name="urlargs" type="hidden" value="" />
                                 </form>
                             </div>
+                            <div id=checkemailpanel style="position:relative;background-color:#979797;border-radius:16px;width:300px;padding:16px;text-align:center;display:none">
+                                <form method=post>
+                                    <input type=hidden name=action value=checkemail />
+                                    <div id=message7></div>
+                                    <table id="checkCheckOperations" style="width:100%;display:none">
+                                        <tr>
+                                            <td>
+                                                <div id="unconfirmedEmail"></div><br />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <div>
+                                                    <input id=changeEmailButton type=button value="Change Email Address" onclick="changeEmailAddress()" />
+                                                    <input id=checkEmailButton2 type=button value="Resend Confirmation Email" onclick="resentEmailConfirmation()" />
+                                                    <input id=checkEmailButton type=submit style="display:none" />
+                                                    <input id=checkEmailVal name=email type="hidden" value="" />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <hr /><a onclick="return xgo(1,event);" href="#" style=cursor:pointer>Back to login</a>
+                                    <input id=checkemailformargs name="urlargs" type="hidden" value="" />
+                                </form>
+                            </div>
 
                         </td>
                     </tr>
@@ -238,7 +288,7 @@
             </table>
         </div>
     </div>
-    <div id=dialog style="z-index:1000;background-color:#EEE;box-shadow:0px 0px 15px #666;font-family:Arial,Helvetica,sans-serif;border-radius:5px;position:fixed;top:180px;width:400px;display:none">
+    <div id=dialog style="z-index:1000;background-color:#EEE;box-shadow:0px 0px 15px #666;font-family:Arial,Helvetica,sans-serif;border-radius:5px;position:fixed;top:180px;width:300px;display:none">
         <div style="width:100%;background-color:#003366;color:#FFF;border-radius:5px 5px 0 0">
             <div id=id_dialogclose style=float:right;padding:5px;cursor:pointer onclick=setDialogMode()><b>X</b></div>
             <div id=id_dialogtitle style=padding:5px></div>
@@ -271,10 +321,14 @@
         var hardwareKeyChallenge = decodeURIComponent('{{{hkey}}}');
         var publicKeyCredentialRequestOptions = null;
         var currentpanel = 0;
+        var otpemail = ('{{{otpemail}}}' === 'true');
+        var otpsms = ('{{{otpsms}}}' === 'true');
+        var twoFactorCookieDays = parseInt('{{{twoFactorCookieDays}}}');
+        var authStrategies = '{{{authStrategies}}}'.split(',');
 
         // Display the right server message
         var messageid = parseInt('{{{messageid}}}');
-        var okmessages = ['', "Hold on, reset mail sent."];
+        var okmessages = ['', "If valid, reset mail sent.", "Email sent.", "Email verification required, check your mailbox and click the confirmation link.", "SMS sent."];
         var failmessages = ["Unable to create account.", "Account limit reached.", "Existing account with this email address.", "Invalid account creation token.", "Username already exists.", "Password rejected, use a different one.", "Invalid email.", "Account not found.", "Invalid token, try again.", "Unable to sent email.", "Account locked.", "Access denied.", "Login failed, check username and password.", "Password change requested.", "IP address blocked, try again later."];
         if (messageid > 0) {
             var msg = '';
@@ -282,7 +336,7 @@
             else if ((messageid >= 100) && ((messageid - 100) < failmessages.length)) { msg = failmessages[messageid - 100]; }
             if (msg != '') {
                 if (messageid >= 100) { msg = ('<span class="msg error"><b style=color:#8C001A>' + msg + '<b></span><br /><br />'); } else { msg = ('<span class="msg success"><b>' + msg + '</b></span><br /><br />'); }
-                for (var i = 1; i < 7; i++) { QH('message' + i, msg); }
+                for (var i = 1; i < 8; i++) { QH('message' + i, msg); }
             }
         }
 
@@ -295,6 +349,14 @@
             Q('tokenformargs').value = urlargs;
             Q('resettokenformargs').value = urlargs;
             Q('resetpasswordformargs').value = urlargs;
+        }
+
+        // Setup two factor cookie time
+        if (twoFactorCookieDays > 0) {
+            QV('tokenInputRememberLabel', true);
+            QH('tokenInputRememberSpan', format("Remember this device for {0} days.", twoFactorCookieDays));
+        } else {
+            QV('tokenInputRememberLabel', false);
         }
 
         function startup() {
@@ -314,6 +376,19 @@
             QV('createPanelHint', passRequirements.hint === true);
             QV('resetpasswordpanelHint', passRequirements.hint === true);
 
+            // Setup authentication strategies
+            if (authStrategies != '') {
+                QV('authStrategies', true);
+                if (authStrategies.indexOf('twitter') >= 0) { QV('auth-twitter', true); }
+                if (authStrategies.indexOf('google') >= 0) { QV('auth-google', true); }
+                if (authStrategies.indexOf('github') >= 0) { QV('auth-github', true); }
+                if (authStrategies.indexOf('reddit') >= 0) { QV('auth-reddit', true); }
+                if (authStrategies.indexOf('azure') >= 0) { QV('auth-azure', true); }
+                if (authStrategies.indexOf('jumpcloud') >= 0) { QV('auth-jumpcloud', true); }
+                if (authStrategies.indexOf('intel') >= 0) { QV('auth-intel', true); }
+                if (authStrategies.indexOf('saml') >= 0) { QV('auth-saml', true); }
+            }
+
             window.onresize = center;
             center();
             validateLogin();
@@ -328,6 +403,8 @@
             if (loginMode == '4') {
                 try { if (hardwareKeyChallenge.length > 0) { hardwareKeyChallenge = JSON.parse(hardwareKeyChallenge); } else { hardwareKeyChallenge = null; } } catch (ex) { hardwareKeyChallenge = null }
                 QV('securityKeyButton', (hardwareKeyChallenge != null) && (hardwareKeyChallenge.type == 'webAuthn'));
+                QV('emailKeyButton', otpemail && (messageid != 2) && (messageid != 4));
+                QV('smsKeyButton', otpsms && (messageid != 2) && (messageid != 4));
             }
 
             if (loginMode == '5') {
@@ -364,6 +441,7 @@
         
         // Use a hardware security key
         function useSecurityKey() {
+            if (xxdialogMode) return;
             if ((hardwareKeyChallenge != null) && (hardwareKeyChallenge.type == 'webAuthn')) {
                 if (typeof hardwareKeyChallenge.challenge == 'string') { hardwareKeyChallenge.challenge = Uint8Array.from(atob(hardwareKeyChallenge.challenge), function (c) { return c.charCodeAt(0) }).buffer; }
 
@@ -393,6 +471,29 @@
             }
         }
 
+        function useEmailToken() {
+            if (xxdialogMode) return;
+            if (otpemail != true) return;
+            setDialogMode(1, "Secure Login", 3, useEmailKeyEx, "Send token to registed email address?");
+        }
+
+        function useEmailKeyEx() {
+            Q('hwtokenInput').value = '**email**';
+            QE('tokenOkButton', true);
+            Q('tokenOkButton').click();
+        }
+
+        function useSMSToken() {
+            if (otpsms != true) return;
+            setDialogMode(1, "Secure Login", 3, useSMSTokenEx, "Send token to registed phone number?");
+        }
+
+        function useSMSTokenEx() {
+            Q('hwtokenInput').value = '**sms**';
+            QE('tokenOkButton', true);
+            Q('tokenOkButton').click();
+        }
+
         function showPassHint() {
             if (passRequirements.hint === true) { messagebox("Password Hint", passhint); }
         }
@@ -404,6 +505,7 @@
             QV('message4', false);
             QV('message5', false);
             QV('message6', false);
+            QV('message7', false);
             go(x);
         }
 
@@ -417,12 +519,18 @@
             QV('tokenpanel', x == 4);
             QV('resettokenpanel', x == 5);
             QV('resetpasswordpanel', x == 6);
+            QV('checkemailpanel', x == 7);
             if (x == 1) { Q('username').focus(); }
             if (x == 2) { if (features & 0x200000) { Q('aemail').focus(); } else { Q('ausername').focus(); } } // Email is username
             if (x == 3) { Q('remail').focus(); }
             if (x == 4) { Q('tokenInput').focus(); }
             if (x == 5) { Q('resetTokenInput').focus(); }
             if (x == 6) { Q('rapassword1').focus(); }
+            if (x == 7) {
+                QH('unconfirmedEmail', passhint);
+                QV('checkCheckOperations', Q('unconfirmedEmail').innerHTML != '');
+                QH('checkEmailVal', passhint);
+            }
         }
 
         function validateLogin(box, e) {
@@ -596,6 +704,28 @@
             QE('resetTokenOkButton', (Q('resetTokenInput').value.length == 6) || (Q('resetTokenInput').value.length == 8) || (Q('resetTokenInput').value.length == 44));
         }
 
+        function changeEmailAddress() {
+            var email = Q('unconfirmedEmail').innerHTML;
+            var x = addHtmlValue("Email", '<input id=dp1email style=width:230px maxlength=256 value="' + email + '" autocomplete=off onchange=validateEmailAddress() onkeyup=validateEmailAddress() />');
+            setDialogMode(1, "Email Confirmation", 3, changeEmailAddressEx, x);
+            validateEmailAddress();
+        }
+
+        function validateEmailAddress() {
+            QE('idx_dlgOkButton', (validateEmail(Q('dp1email').value) == true));
+        }
+
+        function changeEmailAddressEx() {
+            Q('checkEmailVal').value = Q('dp1email').value;
+            QH('unconfirmedEmail', Q('dp1email').value);
+            Q('checkEmailButton').click();
+        }
+
+        function resentEmailConfirmation() {
+            Q('checkEmailVal').value = Q('unconfirmedEmail').innerHTML;
+            Q('checkEmailButton').click();
+        }
+
         //
         // POPUP DIALOG
         //
@@ -633,7 +763,7 @@
             if (((b & 8) || x) && f) f(x, t);
         }
 
-        function center() { QS('dialog').left = ((((getDocWidth() - 400) / 2)) + 'px'); }
+        function center() { QS('dialog').left = ((((getDocWidth() - 300) / 2)) + 'px'); }
         function messagebox(t, m) { QH('id_dialogMessage', m); setDialogMode(1, t, 1); }
         function statusbox(t, m) { QH('id_dialogMessage', m); setDialogMode(1, t); }
         function getDocWidth() { if (window.innerWidth) return window.innerWidth; if (document.documentElement && document.documentElement.clientWidth && document.documentElement.clientWidth != 0) return document.documentElement.clientWidth; return document.getElementsByTagName('body')[0].clientWidth; }
@@ -641,6 +771,7 @@
         function haltReturn(e) { if (e.keyCode == 13) { haltEvent(e); } }
         function validateEmail(v) { var emailReg = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; return emailReg.test(v); } // New version
         function format(format) { var args = Array.prototype.slice.call(arguments, 1); return format.replace(/{(\d+)}/g, function (match, number) { return typeof args[number] != 'undefined' ? args[number] : match; }); };
+        function addHtmlValue(t, v) { return '<table><td style=text-align:left>' + t + '<td><b>' + v + '</b></table>'; }
 
     </script>
 </body>
